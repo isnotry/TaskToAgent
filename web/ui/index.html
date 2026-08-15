@@ -16,13 +16,16 @@
   <body>
     <script>
       // 在 CSS 应用前同步主题，避免首屏白闪
+      // 注意：Arco 2.x 暗色靠 body[arco-theme='dark'] 属性，不是 class
       try {
         var t = localStorage.getItem('taskcli-theme');
         if (
           t === 'dark' ||
           (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)
         ) {
-          document.body.classList.add('arco-theme-dark');
+          document.body.setAttribute('arco-theme', 'dark');
+        } else {
+          document.body.setAttribute('arco-theme', 'light');
         }
       } catch (e) {}
     </script>

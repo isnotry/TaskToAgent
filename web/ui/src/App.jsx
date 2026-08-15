@@ -118,7 +118,9 @@ export default function App() {
     }
   });
   useEffect(() => {
-    document.body.classList.toggle('arco-theme-dark', isDark);
+    // Arco 2.x 原生暗色机制：给 body 加 arco-theme='dark' 属性（而非 class），
+    // CSS 中的 body[arco-theme='dark'] 块才会覆盖全部颜色变量。
+    document.body.setAttribute('arco-theme', isDark ? 'dark' : 'light');
     try {
       localStorage.setItem('taskcli-theme', isDark ? 'dark' : 'light');
     } catch {}
