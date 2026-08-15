@@ -24,6 +24,8 @@ import {
   IconSwap,
   IconMoon,
   IconSun,
+  IconUp,
+  IconDown,
 } from '@arco-design/web-react/icon';
 
 const { Sider, Content, Header } = Layout;
@@ -74,6 +76,9 @@ const api = {
   createTask: (pid, body) => request('POST', `/api/projects/${pid}/tasks`, body),
   updateTask: (id, body) => request('PATCH', `/api/tasks/${id}`, body),
   deleteTask: (id) => request('DELETE', `/api/tasks/${id}`),
+  listTracks: (tid) => request('GET', `/api/tasks/${tid}/tracks`),
+  addTrack: (tid, content) => request('POST', `/api/tasks/${tid}/tracks`, { content }),
+  deleteTrack: (id) => request('DELETE', `/api/tracks/${id}`),
 };
 
 export default function App() {
@@ -300,6 +305,61 @@ export default function App() {
 
   const tasksByCol = (s) => tasks.filter((t) => t.status === s);
 
+  // 任务详情展开 + 跟踪记录：一次只展开一个任务
+  const [expandedId, setExpandedId] = useState(null);
+  const [tracks, setTracks] = useState([]);
+  const [trackDraft, setTrackDraft] = useState('');
+
+  const fmtTs = (ts) => {
+    if (!ts) return '-';
+    const d = new Date(Number(ts));
+    if (isNaN(d.getTime())) return String(ts);
+    return d.toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const toggleExpand = async (tid) => {
+    if (expandedId === tid) {
+      setExpandedId(null);
+      setTracks([]);
+      setTrackDraft('');
+      return;
+    }
+    setExpandedId(tid);
+    setTrackDraft('');
+    try {
+      setTracks(await api.listTracks(tid));
+    } catch (e) {
+      Message.error(e.message);
+    }
+  };
+
+  const submitTrack = async (tid) => {
+    const content = trackDraft.trim();
+    if (!content) return;
+    try {
+      const row = await api.addTrack(tid, content);
+      setTracks((prev) => [...prev, row]);
+      setTrackDraft('');
+      Message.success('已添加跟踪记录');
+    } catch (e) {
+      Message.error(e.message);
+    }
+  };
+
+  const delTrack = async (id) => {
+    try {
+      await api.deleteTrack(id);
+      setTracks((prev) => prev.filter((x) => x.id !== id));
+    } catch (e) {
+      Message.error(e.message);
+    }
+  };
+
   return (
     <Layout style={{ height: '100vh' }}>
       <Sider
@@ -476,7 +536,20 @@ export default function App() {
                               key={t.id}
                               size="small"
                               hoverable
-                              title={t.title}
+                              title={
+                                <div
+                                  onClick={() => toggleExpand(t.id)}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {expandedId === t.id ? <IconUp /> : <IconDown />}
+                                  <span>{t.title}</span>
+                                </div>
+                              }
                               extra={
                                 <Space size={2}>
                                   <Button
@@ -518,7 +591,83 @@ export default function App() {
                                   </Dropdown>
                                 </Tooltip>
                               </Space>
-                            </Card>
+                            {expandedId === t.id && (
+                              <div
+                                style={{
+                                  marginTop: 12,
+                                  paddingTop: 12,
+                                  borderTop: '1px solid var(--color-border-2)',
+                                }}
+                              >
+                                <Space wrap size={[8, 8]} style={{ marginBottom: 12 }}>
+                                  <Tag color={STATUS_META[t.status].color}>
+                                    {STATUS_META[t.status].label}
+                                  </Tag>
+                                  <Tag color={PRIORITY_META[t.priority]?.color || 'gray'}>
+                                    {PRIORITY_META[t.priority]?.label || t.priority}
+                                  </Tag>
+                                  <Text type="secondary" style={{ fontSize: 12 }}>
+                                    创建 {fmtTs(t.created_at)}
+                                  </Text>
+                                  <Text type="secondary" style={{ fontSize: 12 }}>
+                                    更新 {fmtTs(t.updated_at)}
+                                  </Text>
+                                </Space>
+                                <Text bold style={{ fontSize: 13 }}>
+                                  跟踪记录
+                                </Text>
+                                <div style={{ marginTop: 8, maxHeight: 220, overflowY: 'auto' }}>
+                                  {tracks.length === 0 ? (
+                                    <Empty description="暂无跟踪记录" imageStyle={{ height: 30 }} />
+                                  ) : (
+                                    tracks.map((tr) => (
+                                      <div
+                                        key={tr.id}
+                                        style={{
+                                          display: 'flex',
+                                          justifyContent: 'space-between',
+                                          alignItems: 'flex-start',
+                                          gap: 8,
+                                          padding: '6px 0',
+                                          borderBottom: '1px dashed var(--color-border-2)',
+                                        }}
+                                      >
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                          <div
+                                            style={{
+                                              fontSize: 13,
+                                              whiteSpace: 'pre-wrap',
+                                              wordBreak: 'break-word',
+                                            }}
+                                          >
+                                            {tr.content}
+                                          </div>
+                                          <Text type="secondary" style={{ fontSize: 11 }}>
+                                            {fmtTs(tr.created_at)}
+                                          </Text>
+                                        </div>
+                                        <Button
+                                          size="mini"
+                                          type="text"
+                                          status="danger"
+                                          icon={<IconDelete />}
+                                          onClick={() => delTrack(tr.id)}
+                                        />
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                                <Input
+                                  size="small"
+                                  placeholder="添加一条跟踪记录，回车提交"
+                                  value={trackDraft}
+                                  onChange={setTrackDraft}
+                                  onPressEnter={() => submitTrack(t.id)}
+                                  style={{ marginTop: 8 }}
+                                />
+                              </div>
+                            )}
+                          </Card>
                           ))}
                         </Space>
                       )}

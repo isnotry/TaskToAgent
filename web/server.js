@@ -159,6 +159,36 @@ const api = {
     db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
     sendJson(res, 200, { id });
   },
+
+  // GET /api/tasks/:id/tracks  —— 某任务的全部跟踪记录（按 id 升序）
+  async 'GET /api/tasks/:id/tracks'(req, res, id) {
+    const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+    if (!row) return sendJson(res, 404, { error: `记录不存在: ${id}` });
+    const rows = db
+      .prepare('SELECT * FROM task_tracks WHERE task_id = ? ORDER BY id ASC')
+      .all(id);
+    sendJson(res, 200, rows);
+  },
+
+  // POST /api/tasks/:id/tracks  —— 新增一条跟踪记录  body: {content}
+  async 'POST /api/tasks/:id/tracks'(req, res, id) {
+    const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+    if (!row) return sendJson(res, 404, { error: `记录不存在: ${id}` });
+    const b = await readBody(req);
+    if (!b.content || !String(b.content).trim()) {
+      return sendJson(res, 400, { error: 'content 不能为空' });
+    }
+    const info = db
+      .prepare('INSERT INTO task_tracks(task_id, content, created_at) VALUES(?,?,?)')
+      .run(id, String(b.content).trim(), now());
+    sendJson(res, 201, db.prepare('SELECT * FROM task_tracks WHERE id = ?').get(info.lastInsertRowid));
+  },
+
+  // DELETE /api/tracks/:id  —— 删除一条跟踪记录
+  async 'DELETE /api/tracks/:id'(req, res, id) {
+    db.prepare('DELETE FROM task_tracks WHERE id = ?').run(id);
+    sendJson(res, 200, { id });
+  },
 };
 
 /* ----------------------------- 路由 ----------------------------- */
@@ -210,6 +240,9 @@ const server = http.createServer(async (req, res) => {
       ['POST', /^\/api\/projects\/(\d+)\/tasks$/, 'POST /api/projects/:id/tasks'],
       ['PATCH', /^\/api\/tasks\/(\d+)$/, 'PATCH /api/tasks/:id'],
       ['DELETE', /^\/api\/tasks\/(\d+)$/, 'DELETE /api/tasks/:id'],
+      ['GET', /^\/api\/tasks\/(\d+)\/tracks$/, 'GET /api/tasks/:id/tracks'],
+      ['POST', /^\/api\/tasks\/(\d+)\/tracks$/, 'POST /api/tasks/:id/tracks'],
+      ['DELETE', /^\/api\/tracks\/(\d+)$/, 'DELETE /api/tracks/:id'],
     ];
     for (const [method, re, name] of patterns) {
       if (req.method !== method) continue;
