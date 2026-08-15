@@ -1,0 +1,24 @@
+{
+  "name": "taskcli",
+  "version": "1.0.0",
+  "description": "本地任务看板 CLI —— SQLite 存储，agent 友好的非交互式命令",
+  "bin": {
+    "taskcli": "bin/taskcli"
+  },
+  "main": "src/cli.js",
+  "scripts": {
+    "start": "node bin/taskcli",
+    "test": "node test/smoke.js"
+  },
+  "keywords": [
+    "kanban",
+    "task",
+    "sqlite",
+    "cli",
+    "local"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.5"
+  }
+}
