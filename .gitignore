@@ -5,3 +5,4 @@ node_modules/
 .taskcli/
 npm-debug.log
 package-lock.json
+.workbuddy/
