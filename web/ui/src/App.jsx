@@ -286,11 +286,18 @@ export default function App() {
       <Sider
         width={260}
         theme="light"
-        style={{ borderRight: '1px solid var(--color-border-2)' }}
+        style={{
+          borderRight: '1px solid var(--color-border-2)',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100vh',
+          overflow: 'hidden',
+        }}
       >
         <div
           style={{
             padding: 16,
+            flexShrink: 0,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
@@ -308,7 +315,7 @@ export default function App() {
             新建
           </Button>
         </div>
-        <div style={{ overflowY: 'auto', height: 'calc(100vh - 56px)' }}>
+        <div style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
           {projects.length === 0 && (
             <Empty style={{ marginTop: 40 }} description="还没有项目" />
           )}
