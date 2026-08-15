@@ -90,6 +90,10 @@ export default function App() {
     priority: 'normal',
   });
 
+  // 各面板内联添加任务：draft 存每列输入内容，adding 标记当前展开输入的列
+  const [draft, setDraft] = useState({ todo: '', doing: '', done: '' });
+  const [adding, setAdding] = useState(null);
+
   const loadProjects = useCallback(async () => {
     const list = await api.listProjects();
     setProjects(list);
@@ -239,6 +243,33 @@ export default function App() {
       await loadTasks(selectedId);
     } catch (e) {
       Message.error(e.message);
+    }
+  };
+
+  // 在某个面板内联新增任务：状态固定为该列，优先级默认普通，内容留空
+  const submitInline = async (s) => {
+    const title = (draft[s] || '').trim();
+    if (!title) return;
+    if (!selectedId) {
+      Message.warning('请先选择或创建项目');
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.createTask(selectedId, {
+        title,
+        content: '',
+        status: s,
+        priority: 'normal',
+      });
+      setDraft({ ...draft, [s]: '' });
+      setAdding(null);
+      Message.success('已添加');
+      await loadTasks(selectedId);
+    } catch (e) {
+      Message.error(e.message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -457,6 +488,51 @@ export default function App() {
                             </Card>
                           ))}
                         </Space>
+                      )}
+                    </div>
+                    <div style={{ marginTop: 8, flexShrink: 0 }}>
+                      {adding === s ? (
+                        <Space style={{ width: '100%' }} direction="vertical">
+                          <Input
+                            autoFocus
+                            size="small"
+                            placeholder="输入任务标题，回车添加"
+                            value={draft[s]}
+                            onChange={(v) => setDraft({ ...draft, [s]: v })}
+                            onPressEnter={() => submitInline(s)}
+                            disabled={busy}
+                          />
+                          <Space size={8}>
+                            <Button
+                              size="mini"
+                              type="primary"
+                              loading={busy}
+                              onClick={() => submitInline(s)}
+                            >
+                              添加
+                            </Button>
+                            <Button
+                              size="mini"
+                              onClick={() => {
+                                setAdding(null);
+                                setDraft({ ...draft, [s]: '' });
+                              }}
+                            >
+                              取消
+                            </Button>
+                          </Space>
+                        </Space>
+                      ) : (
+                        <Button
+                          long
+                          size="small"
+                          type="dashed"
+                          icon={<IconPlus />}
+                          onClick={() => setAdding(s)}
+                          disabled={!selected}
+                        >
+                          添加任务
+                        </Button>
                       )}
                     </div>
                   </div>
