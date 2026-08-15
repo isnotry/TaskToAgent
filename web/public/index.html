@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>taskcli 看板</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --border: #e3e6ea;
+    --text: #1f2329;
+    --text-2: #646a73;
+    --text-3: #8f959e;
+    --accent: #3370ff;
+    --accent-soft: #eaf1ff;
+    --todo: #8f959e;
+    --doing: #3370ff;
+    --done: #2ea121;
+    --danger: #f53f3f;
+    --shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.04);
+    --radius: 8px;
+    --pri-high: #f53f3f;
+    --pri-normal: #3370ff;
+    --pri-low: #8f959e;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    height: 52px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .spacer { flex: 1; }
+  .btn {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all .15s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn.primary:hover { opacity: .9; color: #fff; }
+  .btn.danger { color: var(--danger); border-color: var(--danger); }
+  .btn.danger:hover { background: var(--danger); color: #fff; }
+
+  .layout { flex: 1; display: flex; min-height: 0; }
+
+  /* 侧栏 */
+  .sidebar {
+    width: 240px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .sidebar .sb-head {
+    padding: 14px 16px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--text-2);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .5px;
+  }
+  .proj-list { list-style: none; margin: 0; padding: 4px 8px; overflow-y: auto; flex: 1; }
+  .proj-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 2px;
+  }
+  .proj-item:hover { background: var(--bg); }
+  .proj-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .proj-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .proj-item .cnt {
+    font-size: 11px;
+    color: var(--text-3);
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 1px 7px;
+  }
+  .proj-item.active .cnt { background: #fff; color: var(--accent); }
+  .proj-item .del {
+    opacity: 0;
+    color: var(--text-3);
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 2px;
+  }
+  .proj-item:hover .del { opacity: 1; }
+  .proj-item .del:hover { color: var(--danger); }
+
+  /* 主区 */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .board-head {
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  .board-head .ptitle { font-size: 16px; font-weight: 600; }
+  .board-head .pmeta { color: var(--text-3); font-size: 12px; }
+  .board-head .spacer { flex: 1; }
+
+  .board {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    padding: 16px 20px;
+    overflow-x: auto;
+  }
+  .column {
+    width: 320px;
+    min-width: 320px;
+    background: var(--bg);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+  }
+  .col-head {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .col-head .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .col-head .dot.todo { background: var(--todo); }
+  .col-head .dot.doing { background: var(--doing); }
+  .col-head .dot.done { background: var(--done); }
+  .col-head .cnt { color: var(--text-3); font-weight: 400; }
+
+  .cards { padding: 4px 10px 12px; overflow-y: auto; flex: 1; }
+  .card {
+    background: var(--panel);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+    padding: 12px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+  }
+  .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+  .card.pri-high { border-left-color: var(--pri-high); }
+  .card.pri-normal { border-left-color: var(--pri-normal); }
+  .card.pri-low { border-left-color: var(--pri-low); }
+  .card .ctitle { font-weight: 600; margin-bottom: 6px; word-break: break-word; }
+  .card .ccontent {
+    color: var(--text-2);
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 80px;
+    overflow: hidden;
+  }
+  .card .cmeta {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-3);
+  }
+  .tag {
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text-2);
+  }
+  .tag.pri-high { background: #ffece8; color: var(--pri-high); }
+  .tag.pri-normal { background: var(--accent-soft); color: var(--pri-normal); }
+  .tag.pri-low { background: var(--bg); color: var(--pri-low); }
+  .empty { color: var(--text-3); text-align: center; padding: 24px 0; font-size: 12px; }
+
+  /* 模态框 */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.35);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: var(--panel);
+    border-radius: 10px;
+    width: 460px;
+    max-width: 92vw;
+    max-height: 88vh;
+    overflow-y: auto;
+    box-shadow: 0 12px 40px rgba(0,0,0,.2);
+  }
+  .modal .m-head {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .modal .m-body { padding: 16px 20px; }
+  .modal .m-foot {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+  .field input, .field textarea, .field select {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text);
+    background: #fff;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .field textarea { resize: vertical; min-height: 72px; }
+  .row2 { display: flex; gap: 12px; }
+  .row2 .field { flex: 1; }
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2329;
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity .2s;
+    z-index: 200;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .placeholder { flex:1; display:flex; align-items:center; justify-content:center; color: var(--text-3); flex-direction:column; gap:8px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>📋 taskcli 看板</h1>
+    <span style="color:var(--text-3);font-size:12px;">本地 SQLite · 与 CLI 共享数据</span>
+    <div class="spacer"></div>
+    <button class="btn primary" id="newProjBtn">+ 新建项目</button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sb-head"><span>项目 / 看板</span></div>
+      <ul class="proj-list" id="projList"></ul>
+    </aside>
+
+    <main class="main" id="main">
+      <div class="placeholder" id="placeholder">
+        <div style="font-size:32px;">📁</div>
+        <div>请选择左侧项目，或新建一个看板</div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 任务模态框 -->
+  <div class="overlay" id="taskOverlay">
+    <div class="modal">
+      <div class="m-head" id="taskModalTitle">新建任务</div>
+      <div class="m-body">
+        <input type="hidden" id="taskId" />
+        <input type="hidden" id="taskProjectId" />
+        <div class="field">
+          <label>标题 *</label>
+          <input id="fTitle" placeholder="任务标题" />
+        </div>
+        <div class="field">
+          <label>内容</label>
+          <textarea id="fContent" placeholder="详细说明（可选）"></textarea>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>状态</label>
+            <select id="fStatus">
+              <option value="todo">待办</option>
+              <option value="doing">进行中</option>
+              <option value="done">已完成</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>优先级</label>
+            <select id="fPriority">
+              <option value="low">低</option>
+              <option value="normal" selected>中</option>
+              <option value="high">高</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="m-foot">
+        <button class="btn" id="taskCancel">取消</button>
+        <button class="btn primary" id="taskSave">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 项目模态框 -->
+  <div class="overlay" id="projOverlay">
+    <div class="modal">
+      <div class="m-head" id="projModalTitle">新建项目</div>
+      <div class="m-body">
+        <input type="hidden" id="projId" />
+        <div class="field">
+          <label>名称 *</label>
+          <input id="fProjName" placeholder="看板名称" />
+        </div>
+        <div class="field">
+          <label>描述</label>
+          <textarea id="fProjDesc" placeholder="可选描述"></textarea>
+        </div>
+      </div>
+      <div class="m-foot">
+        <button class="btn" id="projCancel">取消</button>
+        <button class="btn primary" id="projSave">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const STATUS_LABEL = { todo: '待办', doing: '进行中', done: '已完成' };
+const PRI_LABEL = { low: '低', normal: '中', high: '高' };
+let currentProject = null;
+
+async function api(method, url, body) {
+  const opt = { method, headers: {} };
+  if (body !== undefined) {
+    opt.headers['Content-Type'] = 'application/json';
+    opt.body = JSON.stringify(body);
+  }
+  const res = await fetch(url, opt);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || ('请求失败 ' + res.status));
+  return data;
+}
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+function fmt(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const p = (x) => String(x).padStart(2, '0');
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+async function loadProjects() {
+  const projects = await api('GET', '/api/projects');
+  const list = $('projList');
+  list.innerHTML = '';
+  if (projects.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'empty';
+    li.textContent = '暂无项目';
+    list.appendChild(li);
+    return projects;
+  }
+  for (const p of projects) {
+    const li = document.createElement('li');
+    li.className = 'proj-item' + (currentProject && currentProject.id === p.id ? ' active' : '');
+    li.innerHTML = `<span class="name"></span><span class="cnt">${p.task_count}</span><button class="del" title="删除">✕</button>`;
+    li.querySelector('.name').textContent = p.name;
+    li.addEventListener('click', (e) => {
+      if (e.target.classList.contains('del')) return;
+      selectProject(p);
+    });
+    li.querySelector('.del').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (confirm(`删除项目「${p.name}」及其 ${p.task_count} 条记录？`)) {
+        api('DELETE', '/api/projects/' + p.id).then(() => {
+          if (currentProject && currentProject.id === p.id) currentProject = null;
+          toast('已删除项目');
+          loadProjects().then(() => { if (!currentProject) showPlaceholder(); });
+        }).catch((err) => toast(err.message));
+      }
+    });
+    list.appendChild(li);
+  }
+  return projects;
+}
+
+function showPlaceholder() {
+  $('main').innerHTML = '<div class="placeholder"><div style="font-size:32px;">📁</div><div>请选择左侧项目，或新建一个看板</div></div>';
+}
+
+async function selectProject(p) {
+  currentProject = p;
+  document.querySelectorAll('.proj-item').forEach((el) => {
+    el.classList.toggle('active', el.querySelector('.name').textContent === p.name);
+  });
+  await loadBoard();
+}
+
+async function loadBoard() {
+  if (!currentProject) return showPlaceholder();
+  const tasks = await api('GET', '/api/projects/' + currentProject.id + '/tasks');
+  renderBoard(tasks);
+}
+
+function renderBoard(tasks) {
+  const cols = { todo: [], doing: [], done: [] };
+  for (const t of tasks) (cols[t.status] || cols.todo).push(t);
+
+  const main = $('main');
+  main.innerHTML = `
+    <div class="board-head">
+      <span class="ptitle"></span>
+      <span class="pmeta">共 ${tasks.length} 条</span>
+      <div class="spacer"></div>
+      <button class="btn primary" id="addTaskBtn">+ 新建任务</button>
+    </div>
+    <div class="board">
+      ${['todo', 'doing', 'done'].map((s) => `
+        <div class="column">
+          <div class="col-head"><span class="dot ${s}"></span>${STATUS_LABEL[s]}<span class="cnt">${cols[s].length}</span></div>
+          <div class="cards" data-status="${s}"></div>
+        </div>`).join('')}
+    </div>`;
+  main.querySelector('.ptitle').textContent = currentProject.name;
+
+  for (const s of ['todo', 'doing', 'done']) {
+    const box = main.querySelector(`.cards[data-status="${s}"]`);
+    if (cols[s].length === 0) {
+      box.innerHTML = '<div class="empty">暂无任务</div>';
+    } else {
+      box.innerHTML = '';
+      for (const t of cols[s]) box.appendChild(renderCard(t));
+    }
+  }
+  main.querySelector('#addTaskBtn').addEventListener('click', () => openTaskModal(null));
+}
+
+function renderCard(t) {
+  const el = document.createElement('div');
+  el.className = 'card pri-' + t.priority;
+  el.innerHTML = `
+    <div class="ctitle"></div>
+    ${t.content ? '<div class="ccontent"></div>' : ''}
+    <div class="cmeta">
+      <span class="tag pri-${t.priority}">${PRI_LABEL[t.priority] || t.priority}</span>
+      <span class="time">${fmt(t.updated_at)}</span>
+    </div>`;
+  el.querySelector('.ctitle').textContent = t.title;
+  if (t.content) el.querySelector('.ccontent').textContent = t.content;
+  el.addEventListener('click', () => openTaskModal(t));
+  return el;
+}
+
+/* ---------- 任务模态框 ---------- */
+function openTaskModal(task) {
+  $('taskId').value = task ? task.id : '';
+  $('taskProjectId').value = currentProject ? currentProject.id : '';
+  $('taskModalTitle').textContent = task ? '编辑任务 #' + task.id : '新建任务';
+  $('fTitle').value = task ? task.title : '';
+  $('fContent').value = task ? task.content : '';
+  $('fStatus').value = task ? task.status : 'todo';
+  $('fPriority').value = task ? task.priority : 'normal';
+  $('taskOverlay').classList.add('show');
+  $('fTitle').focus();
+}
+function closeTaskModal() { $('taskOverlay').classList.remove('show'); }
+
+$('taskCancel').addEventListener('click', closeTaskModal);
+$('taskOverlay').addEventListener('click', (e) => { if (e.target === $('taskOverlay')) closeTaskModal(); });
+$('taskSave').addEventListener('click', async () => {
+  const title = $('fTitle').value.trim();
+  if (!title) return toast('标题不能为空');
+  const body = {
+    title,
+    content: $('fContent').value,
+    status: $('fStatus').value,
+    priority: $('fPriority').value,
+  };
+  const id = $('taskId').value;
+  try {
+    if (id) {
+      await api('PATCH', '/api/tasks/' + id, body);
+      toast('已更新');
+    } else {
+      await api('POST', '/api/projects/' + currentProject.id + '/tasks', body);
+      toast('已添加');
+    }
+    closeTaskModal();
+    await loadBoard();
+    await loadProjects();
+  } catch (e) { toast(e.message); }
+});
+
+/* ---------- 项目模态框 ---------- */
+$('newProjBtn').addEventListener('click', () => {
+  $('projId').value = '';
+  $('projModalTitle').textContent = '新建项目';
+  $('fProjName').value = '';
+  $('fProjDesc').value = '';
+  $('projOverlay').classList.add('show');
+  $('fProjName').focus();
+});
+$('projCancel').addEventListener('click', () => $('projOverlay').classList.remove('show'));
+$('projOverlay').addEventListener('click', (e) => { if (e.target === $('projOverlay')) $('projOverlay').classList.remove('show'); });
+$('projSave').addEventListener('click', async () => {
+  const name = $('fProjName').value.trim();
+  if (!name) return toast('名称不能为空');
+  const id = $('projId').value;
+  try {
+    if (id) {
+      await api('PATCH', '/api/projects/' + id, { name });
+      toast('已重命名');
+    } else {
+      await api('POST', '/api/projects', { name, description: $('fProjDesc').value });
+      toast('已创建项目');
+    }
+    $('projOverlay').classList.remove('show');
+    const projects = await loadProjects();
+    if (!currentProject && projects.length) selectProject(projects[projects.length - 1]);
+  } catch (e) { toast(e.message); }
+});
+
+// 双击项目名可重命名
+document.addEventListener('dblclick', (e) => {
+  const item = e.target.closest('.proj-item .name');
+  if (!item) return;
+  const name = item.textContent;
+  const projects = [...document.querySelectorAll('.proj-item')];
+  const idx = projects.findIndex((el) => el.querySelector('.name').textContent === name);
+  // 找到对应 project
+  api('GET', '/api/projects').then((ps) => {
+    const p = ps[idx];
+    if (!p) return;
+    $('projId').value = p.id;
+    $('projModalTitle').textContent = '重命名项目';
+    $('fProjName').value = p.name;
+    $('fProjDesc').value = p.description || '';
+    $('projOverlay').classList.add('show');
+    $('fProjName').focus();
+  });
+});
+
+// 初始化
+loadProjects().then((ps) => { if (ps.length) selectProject(ps[0]); });
+</script>
+</body>
+</html>

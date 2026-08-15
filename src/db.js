@@ -21,6 +21,8 @@ function resolveDbPath() {
 const db = new DatabaseSync(resolveDbPath());
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
+// 多进程并发安全：CLI 与 Web 服务可能同时打开同一文件，等待锁而非立即报错
+db.exec('PRAGMA busy_timeout = 5000');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS projects (
