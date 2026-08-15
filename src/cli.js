@@ -354,6 +354,46 @@ agent 友好:
   process.stdout.write(text + '\n');
 }
 
+function printProjectHelp() {
+  const text = `
+taskcli project —— 项目（看板）管理
+
+  taskcli project list                                  列出所有看板（含任务数）
+  taskcli project add <名称> [--desc <描述>]            新建看板
+  taskcli project rename <id|名称> <新名称>            改名
+  taskcli project remove <id|名称> --yes               删除看板（连带删除其下任务）
+
+提示:
+  - 可用 id 或名称引用项目，按名称精确匹配
+  - 第一个创建的项目自动设为默认，之后免 --project
+  - 用环境变量 TASKCLI_PROJECT 指定默认看板
+  - 所有命令支持 --json 输出
+`;
+  process.stdout.write(text + '\n');
+}
+
+function printTaskHelp() {
+  const text = `
+taskcli task —— 看板内记录（标题/内容/状态/优先级）
+
+  taskcli task list [--project <名称>] [--status idea|todo|doing|done|archive]
+  taskcli task add <标题> --project <名称> [--content <内容>] [--status <s>] [--priority low|normal|high]
+  taskcli task add --project <名称> --batch      # 从 stdin 读 JSON 数组批量插入多条
+  taskcli task update <id> [--title] [--content] [--status] [--priority] [--project]
+  taskcli task remove <id> --yes
+  taskcli task show <id>
+
+状态 (status):    idea(灵感区) | todo(待办) | doing(进行中) | done(已完成) | archive(存档)
+优先级 (priority): low(低) | normal(普通) | high(高)
+
+示例:
+  echo '[{"title":"登录页","status":"doing"},{"title":"埋点"}]' | taskcli task add --project 我的看板 --batch
+  taskcli task update 3 --status done
+  taskcli task list --project 我的看板 --json
+`;
+  process.stdout.write(text + '\n');
+}
+
 /* ----------------------------- 入口 ----------------------------- */
 
 function main() {
@@ -362,8 +402,25 @@ function main() {
   const resource = positionals[0];
   const action = positionals[1];
 
-  if (!resource || resource === 'help' || options.help || options.h) {
+  if (
+    !resource ||
+    resource === 'help' ||
+    ((options.help || options.h) &&
+      resource !== 'project' &&
+      resource !== 'task' &&
+      resource !== 'board' &&
+      resource !== 'kanban')
+  ) {
     return printHelp();
+  }
+  if (resource === 'project' && (action === 'help' || options.help || options.h)) {
+    return printProjectHelp();
+  }
+  if (
+    (resource === 'task' || resource === 'board' || resource === 'kanban') &&
+    (action === 'help' || options.help || options.h)
+  ) {
+    return printTaskHelp();
   }
   if (resource === 'project') return handleProject(action, positionals.slice(2), options, json);
   if (resource === 'task' || resource === 'board' || resource === 'kanban') {
