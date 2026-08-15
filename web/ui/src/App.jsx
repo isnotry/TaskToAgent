@@ -13,12 +13,15 @@ import {
   Popconfirm,
   Message,
   Tooltip,
+  Dropdown,
+  Menu,
 } from '@arco-design/web-react';
 import {
   IconPlus,
   IconEdit,
   IconDelete,
   IconRefresh,
+  IconSwap,
 } from '@arco-design/web-react/icon';
 
 const { Sider, Content, Header } = Layout;
@@ -467,26 +470,20 @@ export default function App() {
                                 <Tag color={PRIORITY_META[t.priority]?.color || 'gray'}>
                                   {PRIORITY_META[t.priority]?.label || t.priority}
                                 </Tag>
-                                {s !== 'todo' && (
-                                  <Button size="mini" onClick={() => moveTask(t, 'todo')}>
-                                    待办
-                                  </Button>
-                                )}
-                                {s !== 'doing' && (
-                                  <Button size="mini" onClick={() => moveTask(t, 'doing')}>
-                                    进行中
-                                  </Button>
-                                )}
-                                {s !== 'done' && (
-                                  <Button
-                                    size="mini"
-                                    type="primary"
-                                    status="success"
-                                    onClick={() => moveTask(t, 'done')}
+                                <Tooltip content="移动到其他面板">
+                                  <Dropdown
+                                    position="br"
+                                    droplist={
+                                      <Menu onClickMenuItem={(key) => moveTask(t, key)}>
+                                        {COLUMNS.filter((c) => c !== s).map((c) => (
+                                          <Menu.Item key={c}>{STATUS_META[c].label}</Menu.Item>
+                                        ))}
+                                      </Menu>
+                                    }
                                   >
-                                    完成
-                                  </Button>
-                                )}
+                                    <Button size="mini" type="text" icon={<IconSwap />} />
+                                  </Dropdown>
+                                </Tooltip>
                               </Space>
                             </Card>
                           ))}
