@@ -122,8 +122,9 @@ taskcli task remove 3 --yes
 
 - `projects`(id, name, description, created_at, updated_at)
 - `tasks`(id, project_id, title, content, status, priority, position, created_at, updated_at)
+- `task_tracks`(id, task_id, content, created_at) —— 任务下的子跟踪记录，外键 `ON DELETE CASCADE` 随任务删除
 - `meta`(key, value) —— 记录默认项目等
-- 删除项目级联删除其下任务（应用层处理）
+- 删除项目级联删除其下任务（应用层处理）；删除任务级联删除其跟踪记录（数据库外键）
 
 ## 备注
 
