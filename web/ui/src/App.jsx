@@ -25,16 +25,19 @@ const { Sider, Content, Header } = Layout;
 const { Title, Text, Paragraph } = Typography;
 
 const STATUS_META = {
+  idea: { label: '灵感区', color: 'orange' },
   todo: { label: '待办', color: 'gray' },
   doing: { label: '进行中', color: 'arcoblue' },
   done: { label: '已完成', color: 'green' },
+  archive: { label: '存档', color: 'gray' },
 };
 const PRIORITY_META = {
   low: { label: '低', color: 'gray' },
   normal: { label: '普通', color: 'arcoblue' },
   high: { label: '高', color: 'red' },
 };
-const COLUMNS = ['todo', 'doing', 'done'];
+// 列顺序：灵感区(第一) → 待办/进行中/已完成 → 存档(最后)
+const COLUMNS = ['idea', 'todo', 'doing', 'done', 'archive'];
 
 const BASE = '';
 async function request(method, url, body) {

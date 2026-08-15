@@ -242,7 +242,7 @@ function handleTask(action, args, options, json) {
         return out(json, { project: p.name, inserted: ids.length, ids }, `已批量插入 ${ids.length} 条记录到 "${p.name}"`);
       }
       const title = args[0];
-      if (!title) fail('用法: taskcli task add <标题> --project <名称> [--content <内容>] [--status todo|doing|done] [--priority low|normal|high]');
+      if (!title) fail('用法: taskcli task add <标题> --project <名称> [--content <内容>] [--status idea|todo|doing|done|archive] [--priority low|normal|high]');
       const p = getActiveProject(options);
       const t = now();
       const info = db
@@ -339,8 +339,8 @@ taskcli —— 本地任务看板 CLI（SQLite 存储，agent 友好）
   taskcli project remove <id|名称> --yes
 
 任务 (task) —— 看板内的记录（标题/内容/状态/优先级）:
-  taskcli task list [--project <名称>] [--status todo|doing|done]
-  taskcli task add <标题> --project <名称> [--content <内容>] [--status <s>] [--priority low|normal|high]
+  taskcli task list [--project <名称>] [--status idea|todo|doing|done|archive]
+  taskcli task add <标题> --project <名称> [--content <内容>] [--status idea|todo|doing|done|archive] [--priority low|normal|high]
   taskcli task add --project <名称> --batch     # 从 stdin 读取 JSON 数组批量插入
   taskcli task update <id> [--title] [--content] [--status] [--priority] [--project]
   taskcli task remove <id> --yes
