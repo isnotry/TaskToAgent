@@ -14,6 +14,18 @@
     </style>
   </head>
   <body>
+    <script>
+      // 在 CSS 应用前同步主题，避免首屏白闪
+      try {
+        var t = localStorage.getItem('taskcli-theme');
+        if (
+          t === 'dark' ||
+          (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        ) {
+          document.body.classList.add('arco-theme-dark');
+        }
+      } catch (e) {}
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

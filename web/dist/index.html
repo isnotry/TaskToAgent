@@ -12,10 +12,22 @@
         margin: 0;
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-BOMIlypw.js"></script>
+    <script type="module" crossorigin src="/assets/index-CuyqPJYl.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-ejlXSaMb.css">
   </head>
   <body>
+    <script>
+      // 在 CSS 应用前同步主题，避免首屏白闪
+      try {
+        var t = localStorage.getItem('taskcli-theme');
+        if (
+          t === 'dark' ||
+          (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        ) {
+          document.body.classList.add('arco-theme-dark');
+        }
+      } catch (e) {}
+    </script>
     <div id="root"></div>
   </body>
 </html>

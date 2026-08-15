@@ -22,6 +22,8 @@ import {
   IconDelete,
   IconRefresh,
   IconSwap,
+  IconMoon,
+  IconSun,
 } from '@arco-design/web-react/icon';
 
 const { Sider, Content, Header } = Layout;
@@ -99,6 +101,23 @@ export default function App() {
   // 各面板内联添加任务：draft 存每列输入内容，adding 标记当前展开输入的列
   const [draft, setDraft] = useState({ todo: '', doing: '', done: '' });
   const [adding, setAdding] = useState(null);
+
+  // 深色模式：优先读 localStorage，否则跟随系统偏好；切换时同步 body 类并持久化
+  const [isDark, setIsDark] = useState(() => {
+    try {
+      const saved = localStorage.getItem('taskcli-theme');
+      if (saved) return saved === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    document.body.classList.toggle('arco-theme-dark', isDark);
+    try {
+      localStorage.setItem('taskcli-theme', isDark ? 'dark' : 'light');
+    } catch {}
+  }, [isDark]);
 
   const loadProjects = useCallback(async () => {
     const list = await api.listProjects();
@@ -285,7 +304,7 @@ export default function App() {
     <Layout style={{ height: '100vh' }}>
       <Sider
         width={260}
-        theme="light"
+        theme={isDark ? 'dark' : 'light'}
         style={{
           borderRight: '1px solid var(--color-border-2)',
           display: 'flex',
@@ -386,6 +405,13 @@ export default function App() {
             {selected ? selected.name : '未选择项目'}
           </Title>
           <Space>
+            <Tooltip content={isDark ? '切换到浅色' : '切换到深色'}>
+              <Button
+                shape="circle"
+                icon={isDark ? <IconSun /> : <IconMoon />}
+                onClick={() => setIsDark((v) => !v)}
+              />
+            </Tooltip>
             <Button icon={<IconRefresh />} onClick={() => loadTasks(selectedId)}>
               刷新
             </Button>
