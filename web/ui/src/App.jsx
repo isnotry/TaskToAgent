@@ -26,6 +26,7 @@ import {
   IconSun,
   IconUp,
   IconDown,
+  IconSearch,
 } from '@arco-design/web-react/icon';
 
 const { Sider, Content, Header } = Layout;
@@ -79,6 +80,7 @@ const api = {
   listTracks: (tid) => request('GET', `/api/tasks/${tid}/tracks`),
   addTrack: (tid, content) => request('POST', `/api/tasks/${tid}/tracks`, { content }),
   deleteTrack: (id) => request('DELETE', `/api/tracks/${id}`),
+  search: (q) => request('GET', `/api/search?q=${encodeURIComponent(q)}`),
 };
 
 export default function App() {
@@ -106,6 +108,33 @@ export default function App() {
   // 各面板内联添加任务：draft 存每列输入内容，adding 标记当前展开输入的列
   const [draft, setDraft] = useState({ todo: '', doing: '', done: '' });
   const [adding, setAdding] = useState(null);
+
+  // 全局模糊搜索：searchQuery 为用户输入框内容；searchResults 为 null 表示未进入搜索态
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+  const [searching, setSearching] = useState(false);
+
+  const runSearch = useCallback(async (q) => {
+    if (!q.trim()) {
+      setSearchResults(null);
+      return;
+    }
+    setSearching(true);
+    try {
+      setSearchResults(await api.search(q));
+    } catch (e) {
+      Message.error(e.message);
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
+
+  // 输入框变化时防抖触发搜索
+  useEffect(() => {
+    const id = setTimeout(() => runSearch(searchQuery), 250);
+    return () => clearTimeout(id);
+  }, [searchQuery, runSearch]);
 
   // 深色模式：优先读 localStorage，否则跟随系统偏好；切换时同步 body 类并持久化
   const [isDark, setIsDark] = useState(() => {
@@ -276,6 +305,13 @@ export default function App() {
     } catch (e) {
       Message.error(e.message);
     }
+  };
+
+  // 搜索结果中点击某任务：跳转到其所属项目并退出搜索态
+  const jumpToProject = (projId) => {
+    setSearchQuery('');
+    setSearchResults(null);
+    setSelectedId(projId);
   };
 
   // 在某个面板内联新增任务：状态固定为该列，优先级默认普通，内容留空
@@ -467,6 +503,19 @@ export default function App() {
             {selected ? selected.name : '未选择项目'}
           </Title>
           <Space>
+            <Input
+              allowClear
+              size="small"
+              style={{ width: 220 }}
+              placeholder="模糊搜索任务（编号/标题/内容/项目）"
+              prefix={<IconSearch />}
+              value={searchQuery}
+              onChange={(v) => setSearchQuery(v)}
+              onClear={() => {
+                setSearchQuery('');
+                setSearchResults(null);
+              }}
+            />
             <Tooltip content={isDark ? '切换到浅色' : '切换到深色'}>
               <Button
                 shape="circle"
@@ -489,7 +538,67 @@ export default function App() {
         </Header>
 
         <Content style={{ padding: 16, overflow: 'hidden' }}>
-          {!selected ? (
+          {searchResults !== null ? (
+            <div style={{ height: '100%', overflowY: 'auto' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 12,
+                }}
+              >
+                <Title heading={6} style={{ margin: 0 }}>
+                  搜索结果 {searching ? '(搜索中…)' : `(${searchResults.length} 条)`}
+                </Title>
+                <Button
+                  size="small"
+                  icon={<IconRefresh />}
+                  onClick={() => runSearch(searchQuery)}
+                >
+                  重新搜索
+                </Button>
+              </div>
+              {searchResults.length === 0 ? (
+                <Empty description="没有匹配的任务" style={{ marginTop: 60 }} />
+              ) : (
+                <Space direction="vertical" style={{ width: '100%' }} size={8}>
+                  {searchResults.map((t) => (
+                    <Card
+                      key={t.id}
+                      size="small"
+                      hoverable
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => jumpToProject(t.project_id)}
+                      title={
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span>{t.title}</span>
+                          <Text type="secondary" style={{ fontSize: 11, marginLeft: 'auto' }}>
+                            {t.code}
+                          </Text>
+                        </div>
+                      }
+                    >
+                      <Space wrap size={[8, 4]}>
+                        <Tag color="arcoblue">{t.project_name}</Tag>
+                        <Tag color={STATUS_META[t.status]?.color || 'gray'}>
+                          {STATUS_META[t.status]?.label || t.status}
+                        </Tag>
+                        <Tag color={PRIORITY_META[t.priority]?.color || 'gray'}>
+                          {PRIORITY_META[t.priority]?.label || t.priority}
+                        </Tag>
+                        {t.content && (
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {t.content.length > 60 ? t.content.slice(0, 60) + '…' : t.content}
+                          </Text>
+                        )}
+                      </Space>
+                    </Card>
+                  ))}
+                </Space>
+              )}
+            </div>
+          ) : !selected ? (
             <Empty
               description="请选择左侧项目，或新建一个看板"
               style={{ marginTop: 80 }}
@@ -550,6 +659,9 @@ export default function App() {
                                 >
                                   {expandedId === t.id ? <IconUp /> : <IconDown />}
                                   <span>{t.title}</span>
+                                  <Text type="secondary" style={{ fontSize: 11, marginLeft: 'auto' }}>
+                                    {t.code}
+                                  </Text>
                                 </div>
                               }
                               extra={

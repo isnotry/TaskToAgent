@@ -10,7 +10,7 @@ process.on('warning', (w) => {
   process.stderr.write(`Warning: ${w && w.message ? w.message : w}\n`);
 });
 
-const { db, now } = require('./db');
+const { db, now, genTaskCode } = require('./db');
 
 /* ----------------------------- 参数解析 ----------------------------- */
 
@@ -193,10 +193,12 @@ function handleTask(action, args, options, json) {
       }
       if (json) return out(json, rows);
       if (rows.length === 0) return out(json, [], `(项目 "${p.name}" 暂无记录)`);
-      const header = pad('ID', 5) + pad('STATUS', 10) + pad('PRIORITY', 9) + pad('TITLE', 30) + 'UPDATED';
+      const header = pad('编号', 10) + pad('ID', 5) + pad('STATUS', 10) + pad('PRIORITY', 9) + pad('TITLE', 28) + 'UPDATED';
       const lines = [`项目: ${p.name}`, header, '-'.repeat(header.length)];
       for (const r of rows) {
-        lines.push(pad(r.id, 5) + pad(r.status, 10) + pad(r.priority, 9) + pad(r.title, 30) + fmtTime(r.updated_at));
+        lines.push(
+          pad(r.code, 10) + pad(r.id, 5) + pad(r.status, 10) + pad(r.priority, 9) + pad(r.title, 28) + fmtTime(r.updated_at)
+        );
       }
       return out(json, rows, lines.join('\n'));
     }
@@ -213,7 +215,7 @@ function handleTask(action, args, options, json) {
         if (!Array.isArray(items)) fail('批量数据必须是 JSON 数组');
         const t = now();
         const ins = db.prepare(
-          'INSERT INTO tasks(project_id, title, content, status, priority, position, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?)'
+          'INSERT INTO tasks(project_id, code, title, content, status, priority, position, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)'
         );
         const ids = [];
         db.exec('BEGIN');
@@ -224,6 +226,7 @@ function handleTask(action, args, options, json) {
             pos += 1;
             const info = ins.run(
               p.id,
+              genTaskCode(),
               String(it.title),
               it.content || '',
               it.status || 'todo',
@@ -247,10 +250,11 @@ function handleTask(action, args, options, json) {
       const t = now();
       const info = db
         .prepare(
-          'INSERT INTO tasks(project_id, title, content, status, priority, position, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?)'
+          'INSERT INTO tasks(project_id, code, title, content, status, priority, position, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)'
         )
         .run(
           p.id,
+          genTaskCode(),
           title,
           options.content || '',
           options.status || 'todo',
@@ -260,7 +264,7 @@ function handleTask(action, args, options, json) {
           t
         );
       const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(info.lastInsertRowid);
-      return out(json, row, `已添加 #${row.id} "${row.title}" 到 "${p.name}"`);
+      return out(json, row, `已添加 #${row.id} [${row.code}] "${row.title}" 到 "${p.name}"`);
     }
     case 'update':
     case 'edit':
@@ -306,6 +310,7 @@ function handleTask(action, args, options, json) {
       if (json) return out(json, row);
       const lines = [
         `ID:        ${row.id}`,
+        `编号:      ${row.code}`,
         `项目:      ${row.project_name}`,
         `标题:      ${row.title}`,
         `状态:      ${row.status}`,
@@ -316,6 +321,37 @@ function handleTask(action, args, options, json) {
         row.content || '(空)',
       ];
       return out(json, row, lines.join('\n'));
+    }
+    case 'search':
+    case 'find': {
+      const q = args[0] || options.q || '';
+      if (!q || !String(q).trim()) {
+        fail('用法: taskcli task search <关键词>  (支持空格分隔的多关键词，模糊匹配 编号/标题/内容/项目)');
+      }
+      const tokens = String(q).toLowerCase().split(/\s+/).filter(Boolean);
+      const cond = tokens
+        .map(() => '(LOWER(t.code) LIKE ? OR LOWER(t.title) LIKE ? OR LOWER(t.content) LIKE ? OR LOWER(p.name) LIKE ?)')
+        .join(' AND ');
+      const sql =
+        'SELECT t.*, p.name AS project_name FROM tasks t JOIN projects p ON p.id = t.project_id WHERE ' +
+        cond +
+        ' ORDER BY t.updated_at DESC';
+      const params = [];
+      for (const tk of tokens) {
+        const like = `%${tk}%`;
+        params.push(like, like, like, like);
+      }
+      const rows = db.prepare(sql).all(...params);
+      if (json) return out(json, rows);
+      if (rows.length === 0) return out(json, [], `(未找到匹配 "${q}" 的任务)`);
+      const header = pad('编号', 10) + pad('ID', 5) + pad('项目', 16) + pad('状态', 10) + pad('标题', 26);
+      const lines = [`搜索 "${q}" —— 命中 ${rows.length} 条`, header, '-'.repeat(header.length)];
+      for (const r of rows) {
+        lines.push(
+          pad(r.code, 10) + pad(r.id, 5) + pad(r.project_name, 16) + pad(r.status, 10) + pad(r.title, 26)
+        );
+      }
+      return out(json, rows, lines.join('\n'));
     }
     default:
       throw new Error(`未知 task 动作: ${action || '(空)'}`);
@@ -345,6 +381,7 @@ taskcli —— 本地任务看板 CLI（SQLite 存储，agent 友好）
   taskcli task update <id> [--title] [--content] [--status] [--priority] [--project]
   taskcli task remove <id> --yes
   taskcli task show <id>
+  taskcli task search <关键词>        # 模糊搜索（编号/标题/内容/项目）
 
 agent 友好:
   - 所有命令支持 --json 输出结构化数据
@@ -382,6 +419,7 @@ taskcli task —— 看板内记录（标题/内容/状态/优先级）
   taskcli task update <id> [--title] [--content] [--status] [--priority] [--project]
   taskcli task remove <id> --yes
   taskcli task show <id>
+  taskcli task search <关键词>        # 模糊搜索（编号/标题/内容/项目）
 
 状态 (status):    idea(灵感区) | todo(待办) | doing(进行中) | done(已完成) | archive(存档)
 优先级 (priority): low(低) | normal(普通) | high(高)

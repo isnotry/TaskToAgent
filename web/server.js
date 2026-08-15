@@ -12,7 +12,7 @@ process.on('warning', (w) => {
 });
 
 // 复用 CLI 的同一份数据库与表结构（同一文件、同一连接配置）
-const { db, now } = require('../src/db');
+const { db, now, genTaskCode } = require('../src/db');
 
 const PORT = Number(process.env.TASKCLI_PORT || 3979);
 const PUBLIC_DIR = path.join(__dirname, 'dist');
@@ -118,6 +118,39 @@ const api = {
     sendJson(res, 200, rows);
   },
 
+  // GET /api/search?q=<关键词>  —— 全局模糊搜索（跨项目，匹配 编号/标题/内容/项目名）
+  //   多关键词以空格分隔，按 AND 组合；?project=<id> 可限定项目范围。
+  async 'GET /api/search'(req, res) {
+    const u = new URL(req.url, 'http://localhost');
+    const q = (u.searchParams.get('q') || '').trim();
+    if (!q) return sendJson(res, 200, []);
+    const pid = u.searchParams.get('project');
+    const tokens = q.toLowerCase().split(/\s+/).filter(Boolean);
+    const where = [];
+    const params = [];
+    if (pid) {
+      where.push('t.project_id = ?');
+      params.push(pid);
+    }
+    const tokCond = tokens
+      .map(
+        () =>
+          '(LOWER(t.code) LIKE ? OR LOWER(t.title) LIKE ? OR LOWER(t.content) LIKE ? OR LOWER(p.name) LIKE ?)'
+      )
+      .join(' AND ');
+    where.push(tokCond);
+    for (const tk of tokens) {
+      const like = `%${tk}%`;
+      params.push(like, like, like, like);
+    }
+    const sql =
+      'SELECT t.*, p.name AS project_name FROM tasks t JOIN projects p ON p.id = t.project_id WHERE ' +
+      where.join(' AND ') +
+      ' ORDER BY t.updated_at DESC';
+    const rows = db.prepare(sql).all(...params);
+    sendJson(res, 200, rows);
+  },
+
   // POST /api/projects/:id/tasks  —— 新建任务  body: {title, content, status, priority}
   async 'POST /api/projects/:id/tasks'(req, res, id) {
     const p = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
@@ -128,9 +161,19 @@ const api = {
     const pos = db.prepare('SELECT COALESCE(MAX(position),0) m FROM tasks WHERE project_id = ?').get(id).m + 1;
     const info = db
       .prepare(
-        'INSERT INTO tasks(project_id, title, content, status, priority, position, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?)'
+        'INSERT INTO tasks(project_id, code, title, content, status, priority, position, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)'
       )
-      .run(id, String(b.title).trim(), b.content || '', b.status || 'todo', b.priority || 'normal', pos, t, t);
+      .run(
+        id,
+        genTaskCode(),
+        String(b.title).trim(),
+        b.content || '',
+        b.status || 'todo',
+        b.priority || 'normal',
+        pos,
+        t,
+        t
+      );
     sendJson(res, 201, db.prepare('SELECT * FROM tasks WHERE id = ?').get(info.lastInsertRowid));
   },
 

@@ -8,6 +8,8 @@
 - **双端互通**：CLI 与网页看板读写同一份数据库，任一边改动另一边立即可见。
 - **项目（看板）隔离**：用 project 区分不同看板，每个看板内是任务记录。
 - **五列看板**：灵感区 → 待办 → 进行中 → 已完成 → 存档，支持面板内直接添加、图标移动。
+- **独立编号**：每个任务自动获得全局唯一编号（如 `T-QP4E54`），可在 CLI / 网页中引用与检索。
+- **模糊搜索**：`taskcli task search <关键词>` 或网页顶部搜索框，跨项目模糊匹配 编号 / 标题 / 内容 / 项目名，多关键词以空格分隔按 AND 组合。
 - **Agent 友好**：所有命令支持 `--json` 结构化输出；批量添加用 `--batch` 从 stdin 读 JSON；破坏性操作需 `--yes`，无 TTY 阻塞。
 - **零运行时依赖**：存储用 Node 内置 `node:sqlite`，前端构建用 Vite + React + Arco Design，无需 `npm install` 即可通过 `npm run web` 启动（构建产物已提交）。
 
@@ -70,6 +72,7 @@ npm run web
 | `taskcli task update <id> [--title] [--content] [--status] [--priority] [--project]` | 改 |
 | `taskcli task remove <id> --yes` | 删 |
 | `taskcli task show <id>` | 看单条详情 |
+| `taskcli task search <关键词>` | 模糊搜索（编号/标题/内容/项目，空格分隔多关键词为 AND） |
 
 状态（status）：`idea`(灵感区) \| `todo`(待办) \| `doing`(进行中) \| `done`(已完成) \| `archive`(存档)
 优先级（priority）：`low`(低) \| `normal`(普通) \| `high`(高)
@@ -95,6 +98,13 @@ taskcli task list --project Web重构 --json
 
 # 删除需显式 --yes（防误删，无 TTY 阻塞）
 taskcli task remove 3 --yes
+
+# 模糊搜索：单关键词
+taskcli task search "组件库"
+# 多关键词 AND（同时包含「周报」与「汇总」）
+taskcli task search "周报 汇总"
+# 也可直接按编号搜
+taskcli task search "T-QP4E54"
 ```
 
 ## 环境变量
@@ -121,7 +131,7 @@ taskcli task remove 3 --yes
 ## 数据库 Schema
 
 - `projects`(id, name, description, created_at, updated_at)
-- `tasks`(id, project_id, title, content, status, priority, position, created_at, updated_at)
+- `tasks`(id, project_id, code, title, content, status, priority, position, created_at, updated_at) —— `code` 为全局唯一独立编号（如 `T-QP4E54`），由程序自动生成，旧库升级时自动回填
 - `task_tracks`(id, task_id, content, created_at) —— 任务下的子跟踪记录，外键 `ON DELETE CASCADE` 随任务删除
 - `meta`(key, value) —— 记录默认项目等
 - 删除项目级联删除其下任务（应用层处理）；删除任务级联删除其跟踪记录（数据库外键）

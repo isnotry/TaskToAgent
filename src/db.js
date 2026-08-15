@@ -36,6 +36,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS tasks (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL,
+    code       TEXT    NOT NULL DEFAULT '',
     title      TEXT    NOT NULL,
     content    TEXT    NOT NULL DEFAULT '',
     status     TEXT    NOT NULL DEFAULT 'todo',
@@ -65,8 +66,50 @@ db.exec(`
   );
 `);
 
+/**
+ * 为每个任务生成一个全局唯一的「独立编号」code，格式 T-XXXXXX。
+ * 采用去除易混淆字符（I/O/0/1）的 base32 字符集，碰撞概率极低，
+ * 生成后仍做一次唯一性校验（极端情况下重试），保证索引不冲突。
+ */
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function genTaskCode() {
+  let code;
+  do {
+    let s = '';
+    for (let i = 0; i < 6; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+    code = 'T-' + s;
+  } while (db.prepare('SELECT 1 FROM tasks WHERE code = ?').get(code));
+  return code;
+}
+
+/**
+ * 迁移：为已存在的表补齐 code 列，并为历史任务回填独立编号。
+ * 兼容旧库（无 code 列）升级，新库（建表时已有 code 列）直接跳过。
+ */
+(function migrateTaskCode() {
+  const cols = db.prepare('PRAGMA table_info(tasks)').all().map((c) => c.name);
+  if (!cols.includes('code')) {
+    // 旧库升级：先补齐列，再建唯一索引（索引必须在列存在之后才能创建）
+    db.exec('ALTER TABLE tasks ADD COLUMN code TEXT NOT NULL DEFAULT \'\'');
+  }
+  // 唯一索引幂等创建（新建库与升级库都确保存在）
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_code ON tasks(code)');
+  const rows = db.prepare('SELECT id FROM tasks WHERE code IS NULL OR code = \'\'').all();
+  if (rows.length) {
+    const upd = db.prepare('UPDATE tasks SET code = ? WHERE id = ?');
+    db.exec('BEGIN');
+    try {
+      for (const r of rows) upd.run(genTaskCode(), r.id);
+      db.exec('COMMIT');
+    } catch (e) {
+      db.exec('ROLLBACK');
+      throw e;
+    }
+  }
+})();
+
 function now() {
   return Date.now();
 }
 
-module.exports = { db, now, resolveDbPath };
+module.exports = { db, now, resolveDbPath, genTaskCode };
