@@ -15,7 +15,7 @@ process.on('warning', (w) => {
 const { db, now } = require('../src/db');
 
 const PORT = Number(process.env.TASKCLI_PORT || 3979);
-const PUBLIC_DIR = path.join(__dirname, 'public');
+const PUBLIC_DIR = path.join(__dirname, 'dist');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -174,6 +174,17 @@ function serveStatic(req, res) {
   }
   fs.readFile(filePath, (err, data) => {
     if (err) {
+      // SPA fallback：无扩展名的导航请求（如 "/"）回退到 index.html
+      if (!path.extname(urlPath)) {
+        return fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (e2, d2) => {
+          if (e2) {
+            res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+            return res.end('Not Found');
+          }
+          res.writeHead(200, { 'Content-Type': MIME['.html'] });
+          res.end(d2);
+        });
+      }
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
       return res.end('Not Found');
     }

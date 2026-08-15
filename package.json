@@ -9,6 +9,8 @@
   "scripts": {
     "start": "node bin/taskcli",
     "web": "node web/server.js",
+    "dev:ui": "cd web/ui && npm run dev",
+    "build:ui": "cd web/ui && npm run build",
     "test": "node test/smoke.js"
   },
   "keywords": [
