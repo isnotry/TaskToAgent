@@ -11,8 +11,21 @@
         height: 100%;
         margin: 0;
       }
+      /* Arco 的颜色变量定义在 body 上，这里给画布兜底背景与文字色，
+         避免深色模式下透明区域透出浏览器白色画布 */
+      body {
+        background: var(--color-bg-1);
+        color: var(--color-text-1);
+      }
+      /* 让原生滚动条 / 表单控件 / 画布底色跟随主题 */
+      html[arco-theme='dark'] {
+        color-scheme: dark;
+      }
+      html[arco-theme='light'] {
+        color-scheme: light;
+      }
     </style>
-    <script type="module" crossorigin src="/assets/index-RDcQVVUJ.js"></script>
+    <script type="module" crossorigin src="/assets/index-CmBbWivq.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-ejlXSaMb.css">
   </head>
   <body>
@@ -21,14 +34,13 @@
       // 注意：Arco 2.x 暗色靠 body[arco-theme='dark'] 属性，不是 class
       try {
         var t = localStorage.getItem('taskcli-theme');
-        if (
+        var theme =
           t === 'dark' ||
           (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)
-        ) {
-          document.body.setAttribute('arco-theme', 'dark');
-        } else {
-          document.body.setAttribute('arco-theme', 'light');
-        }
+            ? 'dark'
+            : 'light';
+        document.body.setAttribute('arco-theme', theme);
+        document.documentElement.setAttribute('arco-theme', theme);
       } catch (e) {}
     </script>
     <div id="root"></div>
