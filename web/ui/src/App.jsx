@@ -72,9 +72,12 @@ const STATUS_DOT = {
 const BASE = '';
 
 // 布局偏好（左侧栏收起 + 各面板折叠）统一存在这一个 key 下：
-// { sider: boolean | null, cols: { [projectId]: { [status]: boolean } } }
+// { v: 版本号, sider: boolean | null, cols: { [projectId]: { [status]: boolean } } }
 // null / undefined 均表示"用户没手动设置过"，按默认规则推导。
 const LAYOUT_KEY = 'taskcli-ui-layout';
+// 布局结构或默认行为发生变更时 +1：旧记录版本不匹配会被整体丢弃，
+// 避免历史遗留的偏好（比如"侧栏收起"）在新默认下继续生效。
+const LAYOUT_VERSION = 2;
 const EMPTY_LAYOUT = { sider: null, cols: {} };
 function readLayout() {
   try {
@@ -82,6 +85,7 @@ function readLayout() {
     if (!raw) return { ...EMPTY_LAYOUT };
     const v = JSON.parse(raw);
     if (!v || typeof v !== 'object') return { ...EMPTY_LAYOUT };
+    if (v.v !== LAYOUT_VERSION) return { ...EMPTY_LAYOUT };
     return {
       sider: typeof v.sider === 'boolean' ? v.sider : null,
       cols: v.cols && typeof v.cols === 'object' ? v.cols : {},
@@ -92,7 +96,7 @@ function readLayout() {
 }
 function writeLayout(layout) {
   try {
-    localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout));
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify({ ...layout, v: LAYOUT_VERSION }));
   } catch {}
 }
 
@@ -439,9 +443,11 @@ export default function App() {
   const [searching, setSearching] = useState(false);
 
   // 左侧项目栏：宽屏可收起（宽度归零），窄屏改为抽屉弹出
-  // siderPref 为 null 表示用户没手动设置过，走默认：只有一个看板时收起
+  // siderPref 为 null 表示用户没手动设置过，走默认展开。
+  // 曾经默认「只有一个看板时收起」，但侧栏后来承载了任务清单，
+  // 收起来就等于把唯一的入口藏了，单项目用户根本发现不了 —— 所以默认常开。
   const [siderPref, setSiderPref] = useState(() => readLayout().sider);
-  const siderOpen = siderPref == null ? (projLoaded ? projects.length > 1 : true) : siderPref;
+  const siderOpen = siderPref == null ? true : siderPref;
   const setSiderOpen = setSiderPref;
   const [drawerOpen, setDrawerOpen] = useState(false);
 
