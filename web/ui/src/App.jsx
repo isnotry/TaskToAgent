@@ -33,7 +33,6 @@ import {
   IconSearch,
   IconMenu,
   IconMenuFold,
-  IconMenuUnfold,
   IconRight,
   IconUser,
   IconSettings,
@@ -347,11 +346,7 @@ function ProjectSidebar({
                     <Text type="secondary" style={{ fontSize: 12 }}>
                       加载中…
                     </Text>
-                  ) : !rows || rows.length === 0 ? (
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      该看板暂无任务
-                    </Text>
-                  ) : (
+                  ) : !rows || rows.length === 0 ? null : (
                     <Space direction="vertical" size={2} style={{ width: '100%' }}>
                       {rows.map((t) => (
                         <div
@@ -552,12 +547,8 @@ export default function App() {
   const [draft, setDraft] = useState({ todo: '', doing: '', done: '' });
   const [adding, setAdding] = useState(null);
 
-  // 面板折叠（按项目分别记录）：undefined = 用户没手动设置过，走"任务数为 0 自动收起"；
-  // 一旦用户点过折叠/展开，就以显式选择为准并持久化。
-  const [colState, setColState] = useState(() => readLayout().cols);
-  const cols = colState[selectedId] || {};
-  const setCol = (s, v) =>
-    setColState((prev) => ({ ...prev, [selectedId]: { ...(prev[selectedId] || {}), [s]: v } }));
+  // 注：原先这里有「面板折叠状态」（按项目记录、持久化到 localStorage），
+  // 但空列现在直接不渲染，不再有折叠/展开两种形态，相关状态与持久化已移除。
 
   // 全局模糊搜索：searchQuery 为用户输入框内容；searchResults 为 null 表示未进入搜索态
   const [searchQuery, setSearchQuery] = useState('');
@@ -695,10 +686,10 @@ export default function App() {
     loadTasks(selectedId);
   }, [selectedId, loadTasks]);
 
-  // 布局偏好（左侧栏 + 各面板折叠）统一写回同一个 localStorage key
+  // 侧栏展开/收起偏好写回 localStorage（面板折叠状态已移除）
   useEffect(() => {
-    writeLayout({ sider: siderPref, cols: colState });
-  }, [siderPref, colState]);
+    writeLayout({ sider: siderPref, cols: {} });
+  }, [siderPref]);
 
   const selected = projects.find((p) => p.id === selectedId) || null;
 
@@ -1348,9 +1339,17 @@ export default function App() {
             />
           ) : isListView ? (
             /* ---------------- 横版：按状态分组，组内任务竖排成列表 ---------------- */
+            // 手机可读性优先：空分组整块不渲染（不显示分组框、不显示"暂无任务"），
+            // 只保留真正有内容的分组；全部为空时给一个整体空态。
             <div style={{ height: '100%', overflowY: 'auto', paddingRight: 2 }}>
-              {COLUMNS.map((s) => {
-                const list = tasksByCol(s);
+              {COLUMNS.filter((s) => !loading && tasksByCol(s).length === 0).length ===
+              COLUMNS.length ? (
+                <Empty description="这个看板还没有任务" style={{ marginTop: 60 }} />
+              ) : (
+                COLUMNS.map((s) => {
+                  const list = tasksByCol(s);
+                  // 加载中先全部渲染占位，避免内容闪一下再消失
+                  if (!loading && list.length === 0) return null;
                 return (
                   <section
                     key={s}
@@ -1414,14 +1413,9 @@ export default function App() {
                       </Space>
                     )}
 
+                    {/* 空分组已在 map 开头return 掉，这里 list 必然非空 */}
                     {loading ? (
                       <Empty description="加载中…" imageStyle={{ height: 30 }} />
-                    ) : list.length === 0 ? (
-                      adding === s ? null : (
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          暂无任务
-                        </Text>
-                      )
                     ) : (
                       <Space direction="vertical" style={{ width: '100%' }} size={8}>
                         {list.map((t) => (
@@ -1522,65 +1516,17 @@ export default function App() {
                     )}
                   </section>
                 );
-              })}
+              })
+              )}
             </div>
           ) : (
             <div style={{ display: 'flex', gap: 16, height: '100%', overflowX: 'auto' }}>
               {COLUMNS.map((s) => {
                 const list = tasksByCol(s);
-                // 用户没手动干预过的面板，任务数为 0 时自动收起（加载中不判定，避免闪烁）
-                const collapsed =
-                  cols[s] !== undefined ? cols[s] : !loading && list.length === 0;
-                return collapsed ? (
-                  <div
-                    key={s}
-                    onClick={() => setCol(s, false)}
-                    title={`展开「${STATUS_META[s].label}」`}
-                    style={{
-                      flex: '0 0 46px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '12px 0',
-                      background: 'var(--color-fill-1)',
-                      borderRadius: 10,
-                      minWidth: 0,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <Tooltip content="展开面板">
-                      <IconMenuUnfold style={{ fontSize: 14, color: 'var(--color-text-3)' }} />
-                    </Tooltip>
-                    <div
-                      style={{
-                        flex: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        writingMode: 'vertical-rl',
-                        letterSpacing: 2,
-                        fontSize: 13,
-                        color: 'var(--color-text-2)',
-                        overflow: 'hidden',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {STATUS_META[s].label} {list.length}
-                    </div>
-                    <Tooltip content="在此面板添加任务">
-                      <Button
-                        size="mini"
-                        type="text"
-                        icon={<IconPlus />}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCol(s, false);
-                          setAdding(s);
-                        }}
-                      />
-                    </Tooltip>
-                  </div>
-                ) : (
+                // 精简优先：空列不再折成竖条占位，直接不渲染；
+                // 加载中先渲染占位，避免内容闪一下再消失。
+                if (!loading && list.length === 0) return null;
+                return (
                   <div
                     key={s}
                     style={{
@@ -1603,27 +1549,11 @@ export default function App() {
                       }}
                     >
                       <Tag color={STATUS_META[s].color}>{STATUS_META[s].label}</Tag>
-                      <Space size={6}>
-                        <Text type="secondary">{list.length}</Text>
-                        <Tooltip content="收起面板">
-                          <Button
-                            size="mini"
-                            type="text"
-                            icon={<IconMenuFold />}
-                            onClick={() => setCol(s, true)}
-                          />
-                        </Tooltip>
-                      </Space>
+                      <Text type="secondary">{list.length}</Text>
                     </div>
                     <div style={{ overflowY: 'auto', flex: 1 }}>
                       {loading ? (
                         <Empty description="加载中…" style={{ marginTop: 24 }} />
-                      ) : list.length === 0 ? (
-                        <Empty
-                          description="暂无"
-                          style={{ marginTop: 24 }}
-                          imageStyle={{ height: 40 }}
-                        />
                       ) : (
                         <Space direction="vertical" style={{ width: '100%' }} size={12}>
                           {list.map((t) => (
