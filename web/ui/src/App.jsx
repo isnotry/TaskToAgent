@@ -235,10 +235,18 @@ function ProjectSidebar({
         <Title heading={5} style={{ margin: 0 }}>
           看板
         </Title>
-        <Space size={8}>
-          <Button type="primary" size="small" icon={<IconPlus />} onClick={onNew}>
-            新建
-          </Button>
+        <Space size={4}>
+          {/* 新建看板：与顶栏、列头一致，只用加号图标 + 悬停提示 */}
+          <Tooltip content="新建看板">
+            <Button
+              type="primary"
+              size="small"
+              shape="circle"
+              icon={<IconPlus />}
+              aria-label="新建看板"
+              onClick={onNew}
+            />
+          </Tooltip>
           {onCollapse && (
             <Tooltip content="收起侧栏">
               <Button size="small" type="text" icon={<IconMenuFold />} onClick={onCollapse} />
