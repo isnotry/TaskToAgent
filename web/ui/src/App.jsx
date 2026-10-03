@@ -1689,6 +1689,10 @@ export default function App() {
                               // 表现为"点了没反应"。下方按钮各自 stopPropagation 保持独立行为。
                               onClick={() => toggleExpand(t.id)}
                               style={{ cursor: 'pointer' }}
+                              // Arco 的 Card header 默认固定单行高度（39px）且 overflow:hidden，
+                              // 标题折行时第2 行会被裁掉、且不出现省略号（看着像标题就这么长）。
+                              // 改成自适应高度 + 允许换行，标题才能真正显示到 clamp 的行数。
+                              className="task-card"
                               title={
                                 <div
                                   style={{
@@ -1698,13 +1702,15 @@ export default function App() {
                                     gap: 8,
                                     width: '100%',
                                     minWidth: 0,
+                                    whiteSpace: 'normal',
                                   }}
                                 >
                                   <span style={{ flexShrink: 0, marginTop: 2 }}>
                                     {expandedId === t.id ? <IconUp /> : <IconDown />}
                                   </span>
-                                  {/* 任务标题：先完整显示，卡片放不下时最多折两行，
-                                      两行仍装不下才省略（比单行省略更易读）*/}
+                                  {/* 任务标题：完整显示，最多折三行，超出才省略。
+                                      中文标题短，两行足够；英文标题约为中文两倍长，
+                                      行数给到 3 才不会出现「Refactor the com…」这种半截词。*/}
                                   <span
                                     title={t.title}
                                     style={{
@@ -1712,7 +1718,7 @@ export default function App() {
                                       minWidth: 0,
                                       overflowWrap: 'anywhere',
                                       display: '-webkit-box',
-                                      WebkitLineClamp: 2,
+                                      WebkitLineClamp: 3,
                                       WebkitBoxOrient: 'vertical',
                                       overflow: 'hidden',
                                       lineHeight: '20px',

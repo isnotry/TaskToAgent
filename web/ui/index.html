@@ -24,6 +24,21 @@
       html[arco-theme='light'] {
         color-scheme: light;
       }
+
+      /* 任务卡片标题自适应高度。
+         Arco 的 .arco-card-header 默认是单行高度（39px）且 overflow:hidden，
+         标题折行时第 2 行起被裁掉、又不显示省略号，看着像标题本来就那么长。
+         英文标题比中文长得多，这个问题尤其明显，所以放开高度与换行，
+         让标题真正显示到 JSX 里设的 -webkit-line-clamp 行数为止。 */
+      .task-card .arco-card-header {
+        height: auto;
+        min-height: 0;
+        overflow: visible;
+        padding-bottom: 4px;
+      }
+      .task-card .arco-card-header-title {
+        white-space: normal;
+      }
     </style>
   </head>
   <body>
