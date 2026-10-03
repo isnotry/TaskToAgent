@@ -16,6 +16,9 @@ import {
   Dropdown,
   Menu,
   Drawer,
+  Popover,
+  Radio,
+  Divider,
 } from '@arco-design/web-react';
 import {
   IconPlus,
@@ -33,10 +36,12 @@ import {
   IconMenuUnfold,
   IconRight,
   IconUser,
+  IconSettings,
 } from '@arco-design/web-react/icon';
 
 const { Sider, Content, Header } = Layout;
 const { Title, Text, Paragraph } = Typography;
+const { Group: RadioGroup } = Radio;
 
 const STATUS_META = {
   idea: { label: '灵感区', color: 'orange' },
@@ -402,6 +407,123 @@ function ProjectSidebar({
   );
 }
 
+/**
+ * 任务详情区块（竖版看板 / 横版分组两套视图共用一份实现）
+ * 整块 stopPropagation：否则在详情里点输入框、选文字、滚动跟踪记录，
+ * 会冒泡到整卡可点的 onClick 上把卡片折叠掉。
+ */
+function TaskDetail({ task, tracks, trackDraft, setTrackDraft, onSubmitTrack, onDelTrack, fmtTs }) {
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        marginTop: 16,
+        paddingTop: 14,
+        borderTop: '1px solid var(--color-border-2)',
+      }}
+    >
+      <Space wrap size={[10, 10]} style={{ marginBottom: 14 }}>
+        <Tag color={STATUS_META[task.status]?.color}>{STATUS_META[task.status]?.label || task.status}</Tag>
+        <Tag color={PRIORITY_META[task.priority]?.color || 'gray'}>
+          {PRIORITY_META[task.priority]?.label || task.priority}
+        </Tag>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          创建 {fmtTs(task.created_at)}
+        </Text>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          更新 {fmtTs(task.updated_at)}
+        </Text>
+        {task.assignee && (
+          <Tag color={leaseExpired(task) ? 'red' : 'cyan'}>
+            认领人 {task.assignee}
+            {leaseExpired(task) ? '（租约超时）' : ''}
+          </Tag>
+        )}
+      </Space>
+
+      {(task.attempts || 0) > 0 && (
+        <div style={{ fontSize: 12, marginBottom: 10 }}>
+          <Tag color="red">失败 {task.attempts} 次</Tag>
+          {task.last_error && (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              最近错误：{task.last_error}
+            </Text>
+          )}
+        </div>
+      )}
+
+      {task.result && (
+        <div
+          style={{
+            fontSize: 12,
+            marginBottom: 10,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          <Text bold style={{ fontSize: 12 }}>
+            产出：
+          </Text>
+          {task.result}
+        </div>
+      )}
+
+      <Text bold style={{ fontSize: 13 }}>
+        跟踪记录
+      </Text>
+      <div style={{ marginTop: 8, maxHeight: 220, overflowY: 'auto' }}>
+        {tracks.length === 0 ? (
+          <Empty description="暂无跟踪记录" imageStyle={{ height: 30 }} />
+        ) : (
+          tracks.map((tr) => (
+            <div
+              key={tr.id}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                gap: 8,
+                padding: '6px 0',
+                borderBottom: '1px dashed var(--color-border-2)',
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  {tr.content}
+                </div>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {fmtTs(tr.created_at)}
+                </Text>
+              </div>
+              <Button
+                size="mini"
+                type="text"
+                status="danger"
+                icon={<IconDelete />}
+                onClick={() => onDelTrack(tr.id)}
+              />
+            </div>
+          ))
+        )}
+      </div>
+      <Input
+        size="small"
+        placeholder="添加一条跟踪记录，回车提交"
+        value={trackDraft}
+        onChange={setTrackDraft}
+        onPressEnter={onSubmitTrack}
+        style={{ marginTop: 12 }}
+      />
+    </div>
+  );
+}
+
 export default function App() {
   const [projects, setProjects] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
@@ -515,6 +637,30 @@ export default function App() {
       localStorage.setItem('taskcli-theme', theme);
     } catch {}
   }, [isDark]);
+
+  /* ------------------- 任务列表展现形式（竖版看板 / 横版分组） ------------------- */
+  // 'board' 竖版：状态列并排，看板视角，适合宽屏
+  // 'list'  横版：按状态分组，组内任务竖排成列表，整行可点，适合手机
+  const LAYOUT_VIEW_KEY = 'taskcli-ui-view';
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem(LAYOUT_VIEW_KEY);
+      if (saved === 'board' || saved === 'list') return saved;
+      // 没手动设过：手机默认横版（竖列看板在窄屏几乎没法用），其余按竖版
+      return typeof window !== 'undefined' && window.innerWidth < 900 ? 'list' : 'board';
+    } catch {
+      return 'board';
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(LAYOUT_VIEW_KEY, viewMode);
+    } catch {}
+  }, [viewMode]);
+  const isListView = viewMode === 'list';
+
+  // 设置菜单（顶栏齿轮）：主题 + 展现形式收在一处
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const loadProjects = useCallback(async () => {
     const list = await api.listProjects();
@@ -990,13 +1136,70 @@ export default function App() {
                 setSearchResults(null);
               }}
             />
-            <Tooltip content={isDark ? '切换到浅色' : '切换到深色'}>
-              <Button
-                shape="circle"
-                icon={isDark ? <IconSun /> : <IconMoon />}
-                onClick={() => setIsDark((v) => !v)}
-              />
-            </Tooltip>
+            <Popover
+              trigger="click"
+              position="br"
+              visible={settingsOpen}
+              onChange={setSettingsOpen}
+              // 深浅色 + 展现形式收进同一个设置菜单，顶栏不再散落
+              content={
+                <div style={{ width: 232 }}>
+                  <Text bold style={{ fontSize: 13 }}>
+                    主题
+                  </Text>
+                  <RadioGroup
+                    type="button"
+                    size="small"
+                    style={{ marginTop: 8, display: 'flex' }}
+                    value={isDark ? 'dark' : 'light'}
+                    onChange={(v) => setIsDark(v === 'dark')}
+                  >
+                    <Radio value="light">
+                      <Space size={4}>
+                        <IconSun />浅色
+                      </Space>
+                    </Radio>
+                    <Radio value="dark">
+                      <Space size={4}>
+                        <IconMoon />深色
+                      </Space>
+                    </Radio>
+                  </RadioGroup>
+
+                  <Divider style={{ margin: '14px 0 12px' }} />
+
+                  <Text bold style={{ fontSize: 13 }}>
+                    任务列表展现形式
+                  </Text>
+                  <RadioGroup
+                    type="button"
+                    size="small"
+                    style={{ marginTop: 8, display: 'flex' }}
+                    value={viewMode}
+                    onChange={(v) => setViewMode(v)}
+                  >
+                    <Radio value="board">竖版看板</Radio>
+                    <Radio value="list">横版分组</Radio>
+                  </RadioGroup>
+                  <div style={{ marginTop: 8 }}>
+                    <Text type="secondary" style={{ fontSize: 12, lineHeight: '18px' }}>
+                      竖版：状态列并排，适合宽屏。
+                      <br />
+                      横版：按状态分组、组内列表，整行可点，手机更顺手。
+                      {isNarrow && !isListView ? ' 手机上建议用横版。' : ''}
+                    </Text>
+                  </div>
+                </div>
+              }
+            >
+              <Tooltip content="设置">
+                <Button
+                  shape="circle"
+                  icon={<IconSettings />}
+                  aria-label="设置"
+                />
+              </Tooltip>
+            </Popover>
             <Tooltip
               content={
                 syncedAt
@@ -1094,6 +1297,184 @@ export default function App() {
               description="请选择左侧项目，或新建一个看板"
               style={{ marginTop: 80 }}
             />
+          ) : isListView ? (
+            /* ---------------- 横版：按状态分组，组内任务竖排成列表 ---------------- */
+            <div style={{ height: '100%', overflowY: 'auto', paddingRight: 2 }}>
+              {COLUMNS.map((s) => {
+                const list = tasksByCol(s);
+                return (
+                  <section
+                    key={s}
+                    style={{
+                      marginBottom: 18,
+                      background: 'var(--color-fill-1)',
+                      borderRadius: 10,
+                      padding: 14,
+                    }}
+                  >
+                    {/* 分组头：状态名 + 条数 + 直接在这一组加任务 */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 8,
+                        marginBottom: list.length ? 10 : 0,
+                      }}
+                    >
+                      <Space size={8}>
+                        <Tag color={STATUS_META[s].color}>{STATUS_META[s].label}</Tag>
+                        <Text type="secondary">{list.length}</Text>
+                      </Space>
+                      <Tooltip content="在此分组添加任务">
+                        <Button
+                          size="mini"
+                          type="text"
+                          icon={<IconPlus />}
+                          onClick={() => setAdding(s)}
+                          disabled={!selected}
+                        />
+                      </Tooltip>
+                    </div>
+
+                    {adding === s && (
+                      <Space direction="vertical" size={8} style={{ width: '100%', marginBottom: 10 }}>
+                        <Input
+                          autoFocus
+                          size="small"
+                          placeholder="输入任务标题，回车添加"
+                          value={draft[s] || ''}
+                          onChange={(v) => setDraft({ ...draft, [s]: v })}
+                          onPressEnter={() => submitInline(s)}
+                          disabled={busy}
+                        />
+                        <Space size={8}>
+                          <Button size="mini" type="primary" loading={busy} onClick={() => submitInline(s)}>
+                            添加
+                          </Button>
+                          <Button
+                            size="mini"
+                            onClick={() => {
+                              setAdding(null);
+                              setDraft({ ...draft, [s]: '' });
+                            }}
+                          >
+                            取消
+                          </Button>
+                        </Space>
+                      </Space>
+                    )}
+
+                    {loading ? (
+                      <Empty description="加载中…" imageStyle={{ height: 30 }} />
+                    ) : list.length === 0 ? (
+                      adding === s ? null : (
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          暂无任务
+                        </Text>
+                      )
+                    ) : (
+                      <Space direction="vertical" style={{ width: '100%' }} size={8}>
+                        {list.map((t) => (
+                          <Card
+                            key={t.id}
+                            size="small"
+                            hoverable
+                            // 整行可点开详情（与竖版一致的交互）
+                            onClick={() => toggleExpand(t.id)}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: 10,
+                                minWidth: 0,
+                              }}
+                            >
+                              <span style={{ flexShrink: 0, marginTop: 2, color: 'var(--color-text-3)' }}>
+                                {expandedId === t.id ? <IconUp /> : <IconDown />}
+                              </span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div
+                                  title={t.title}
+                                  style={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    lineHeight: '20px',
+                                  }}
+                                >
+                                  {t.title}
+                                </div>
+                                {t.content && (
+                                  <div
+                                    style={{
+                                      marginTop: 2,
+                                      fontSize: 12,
+                                      color: 'var(--color-text-3)',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {t.content}
+                                  </div>
+                                )}
+                                <Space wrap size={[6, 6]} style={{ marginTop: 8 }}>
+                                  <TaskCode code={t.code} />
+                                  <Tag color={PRIORITY_META[t.priority]?.color || 'gray'}>
+                                    {PRIORITY_META[t.priority]?.label || t.priority}
+                                  </Tag>
+                                  {t.assignee && (
+                                    <Tag color={leaseExpired(t) ? 'red' : 'cyan'}>
+                                      {leaseExpired(t) ? `${t.assignee} · 超时` : t.assignee}
+                                    </Tag>
+                                  )}
+                                  {(t.attempts || 0) > 0 && (
+                                    <Tooltip content={t.last_error || '尚无错误详情'}>
+                                      <Tag color="red">失败 {t.attempts} 次</Tag>
+                                    </Tooltip>
+                                  )}
+                                </Space>
+                              </div>
+                              {/* 右侧操作：移动到其他状态。stopPropagation 保住"点它不触发展开" */}
+                              <div onClick={(e) => e.stopPropagation()} style={{ flexShrink: 0 }}>
+                                <Tooltip content="移动到其他分组">
+                                  <Dropdown
+                                    position="br"
+                                    droplist={
+                                      <Menu onClickMenuItem={(key) => moveTask(t, key)}>
+                                        {COLUMNS.filter((c) => c !== s).map((c) => (
+                                          <Menu.Item key={c}>{STATUS_META[c].label}</Menu.Item>
+                                        ))}
+                                      </Menu>
+                                    }
+                                  >
+                                    <Button size="mini" type="text" icon={<IconSwap />} />
+                                  </Dropdown>
+                                </Tooltip>
+                              </div>
+                            </div>
+
+                            {expandedId === t.id && (
+                              <TaskDetail
+                                task={t}
+                                tracks={tracks}
+                                trackDraft={trackDraft}
+                                setTrackDraft={setTrackDraft}
+                                onSubmitTrack={() => submitTrack(t.id)}
+                                onDelTrack={delTrack}
+                                fmtTs={fmtTs}
+                              />
+                            )}
+                          </Card>
+                        ))}
+                      </Space>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
           ) : (
             <div style={{ display: 'flex', gap: 16, height: '100%', overflowX: 'auto' }}>
               {COLUMNS.map((s) => {
@@ -1295,114 +1676,15 @@ export default function App() {
                                 </Tooltip>
                               </Space>
                             {expandedId === t.id && (
-                              <div
-                                // 展开区自身不触发收起：在详情里点输入框、选文字、
-                                // 滚动跟踪记录时，不该把卡片折叠掉
-                                onClick={(e) => e.stopPropagation()}
-                                style={{
-                                  marginTop: 16,
-                                  paddingTop: 14,
-                                  borderTop: '1px solid var(--color-border-2)',
-                                }}
-                              >
-                                <Space wrap size={[10, 10]} style={{ marginBottom: 14 }}>
-                                  <Tag color={STATUS_META[t.status].color}>
-                                    {STATUS_META[t.status].label}
-                                  </Tag>
-                                  <Tag color={PRIORITY_META[t.priority]?.color || 'gray'}>
-                                    {PRIORITY_META[t.priority]?.label || t.priority}
-                                  </Tag>
-                                  <Text type="secondary" style={{ fontSize: 12 }}>
-                                    创建 {fmtTs(t.created_at)}
-                                  </Text>
-                                  <Text type="secondary" style={{ fontSize: 12 }}>
-                                    更新 {fmtTs(t.updated_at)}
-                                  </Text>
-                                  {t.assignee && (
-                                    <Tag color={leaseExpired(t) ? 'red' : 'cyan'}>
-                                      认领人 {t.assignee}
-                                      {leaseExpired(t) ? '（租约超时）' : ''}
-                                    </Tag>
-                                  )}
-                                </Space>
-                                {(t.attempts || 0) > 0 && (
-                                  <div style={{ fontSize: 12, marginBottom: 10 }}>
-                                    <Tag color="red">失败 {t.attempts} 次</Tag>
-                                    {t.last_error && (
-                                      <Text type="secondary" style={{ fontSize: 12 }}>
-                                        最近错误：{t.last_error}
-                                      </Text>
-                                    )}
-                                  </div>
-                                )}
-                                {t.result && (
-                                  <div
-                                    style={{
-                                      fontSize: 12,
-                                      marginBottom: 10,
-                                      whiteSpace: 'pre-wrap',
-                                      wordBreak: 'break-word',
-                                    }}
-                                  >
-                                    <Text bold style={{ fontSize: 12 }}>
-                                      产出：
-                                    </Text>
-                                    {t.result}
-                                  </div>
-                                )}
-                                <Text bold style={{ fontSize: 13 }}>
-                                  跟踪记录
-                                </Text>
-                                <div style={{ marginTop: 8, maxHeight: 220, overflowY: 'auto' }}>
-                                  {tracks.length === 0 ? (
-                                    <Empty description="暂无跟踪记录" imageStyle={{ height: 30 }} />
-                                  ) : (
-                                    tracks.map((tr) => (
-                                      <div
-                                        key={tr.id}
-                                        style={{
-                                          display: 'flex',
-                                          justifyContent: 'space-between',
-                                          alignItems: 'flex-start',
-                                          gap: 8,
-                                          padding: '6px 0',
-                                          borderBottom: '1px dashed var(--color-border-2)',
-                                        }}
-                                      >
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                          <div
-                                            style={{
-                                              fontSize: 13,
-                                              whiteSpace: 'pre-wrap',
-                                              wordBreak: 'break-word',
-                                            }}
-                                          >
-                                            {tr.content}
-                                          </div>
-                                          <Text type="secondary" style={{ fontSize: 11 }}>
-                                            {fmtTs(tr.created_at)}
-                                          </Text>
-                                        </div>
-                                        <Button
-                                          size="mini"
-                                          type="text"
-                                          status="danger"
-                                          icon={<IconDelete />}
-                                          onClick={() => delTrack(tr.id)}
-                                        />
-                                      </div>
-                                    ))
-                                  )}
-                                </div>
-                                <Input
-                                  size="small"
-                                  placeholder="添加一条跟踪记录，回车提交"
-                                  value={trackDraft}
-                                  onChange={setTrackDraft}
-                                  onPressEnter={() => submitTrack(t.id)}
-                                  style={{ marginTop: 12 }}
-                                />
-                              </div>
+                              <TaskDetail
+                                task={t}
+                                tracks={tracks}
+                                trackDraft={trackDraft}
+                                setTrackDraft={setTrackDraft}
+                                onSubmitTrack={() => submitTrack(t.id)}
+                                onDelTrack={delTrack}
+                                fmtTs={fmtTs}
+                              />
                             )}
                           </Card>
                           ))}
@@ -1458,7 +1740,8 @@ export default function App() {
                 );
               })}
             </div>
-          )}
+          )
+          }
         </Content>
       </Layout>
 
