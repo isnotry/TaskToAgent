@@ -1201,16 +1201,19 @@ export default function App() {
                               key={t.id}
                               size="small"
                               hoverable
+                              // 整张卡都可点开详情。此前只有标题那条细缝绑定 onClick，
+                              // 卡片越大、正文越长，能点的区域占比越小（描述长的任务几乎点不动），
+                              // 表现为"点了没反应"。下方按钮各自 stopPropagation 保持独立行为。
+                              onClick={() => toggleExpand(t.id)}
+                              style={{ cursor: 'pointer' }}
                               title={
                                 <div
-                                  onClick={() => toggleExpand(t.id)}
                                   style={{
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: 8,
                                     width: '100%',
                                     minWidth: 0,
-                                    cursor: 'pointer',
                                   }}
                                 >
                                   <span style={{ flexShrink: 0 }}>
@@ -1232,17 +1235,14 @@ export default function App() {
                                 </div>
                               }
                               extra={
-                                <Space size={2}>
+                                <Space size={2} onClick={(e) => e.stopPropagation()}>
                                   <Button
                                     size="mini"
                                     type="text"
                                     icon={<IconEdit />}
                                     onClick={() => openEditTask(t)}
                                   />
-                                  <Popconfirm
-                                    title="删除该任务？"
-                                    onOk={() => deleteTask(t)}
-                                  >
+                                  <Popconfirm title="删除该任务？" onOk={() => deleteTask(t)}>
                                     <Button size="mini" type="text" status="danger" icon={<IconDelete />} />
                                   </Popconfirm>
                                 </Space>
@@ -1253,7 +1253,9 @@ export default function App() {
                                   {t.content}
                                 </Paragraph>
                               )}
-                              <Space wrap>
+                              {/* 标签行：整卡可点后，这里需要挡住冒泡，否则复制编号/
+                                打开移动菜单会顺带触发展开。 */}
+                              <Space wrap onClick={(e) => e.stopPropagation()}>
                                 {/* 任务编号放在卡片底部标签行，不再挤占标题空间；点击可复制 */}
                                 <TaskCode code={t.code} />
                                 <Tag color={PRIORITY_META[t.priority]?.color || 'gray'}>
@@ -1294,6 +1296,9 @@ export default function App() {
                               </Space>
                             {expandedId === t.id && (
                               <div
+                                // 展开区自身不触发收起：在详情里点输入框、选文字、
+                                // 滚动跟踪记录时，不该把卡片折叠掉
+                                onClick={(e) => e.stopPropagation()}
                                 style={{
                                   marginTop: 16,
                                   paddingTop: 14,
