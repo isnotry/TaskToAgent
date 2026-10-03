@@ -36,26 +36,19 @@ import {
   IconRight,
   IconUser,
   IconSettings,
+  IconLanguage,
 } from '@arco-design/web-react/icon';
+// t：模块级取文案（React 树外可用，供 request() 的错误提示用）
+// tr / lang / setLang / useMeta / LANGS：在组件里通过 useI18n() 取（t 在本文件
+// 已被大量 map 回调形参「任务对象 t」占用，故组件内一律用 tr 以免遮蔽冲突）
+import { useI18n, useMeta, LANGS, t } from './i18n';
 
 const { Sider, Content, Header } = Layout;
 const { Title, Text, Paragraph } = Typography;
 const { Group: RadioGroup } = Radio;
 
-const STATUS_META = {
-  idea: { label: '灵感区', color: 'orange' },
-  todo: { label: '待办', color: 'gray' },
-  doing: { label: '进行中', color: 'arcoblue' },
-  blocked: { label: '阻塞', color: 'red' },
-  review: { label: '待验收', color: 'purple' },
-  done: { label: '已完成', color: 'green' },
-  archive: { label: '存档', color: 'gray' },
-};
-const PRIORITY_META = {
-  low: { label: '低', color: 'gray' },
-  normal: { label: '普通', color: 'arcoblue' },
-  high: { label: '高', color: 'red' },
-};
+// 状态 / 优先级的 label 随语言变、颜色不变，合成后的 { label, color } 结构由
+// i18n.jsx 的 useMeta() 提供（挂在字典一侧，改文案不用碰这个文件）。
 // 列顺序：灵感区(第一) → 待办/进行中 → 阻塞/待验收 → 已完成 → 存档(最后)
 const COLUMNS = ['idea', 'todo', 'doing', 'blocked', 'review', 'done', 'archive'];
 
@@ -167,14 +160,15 @@ const codeChipStyle = {
   flexShrink: 0,
 };
 function TaskCode({ code }) {
+  const { t: tr } = useI18n();
   const onClick = async (e) => {
     e.stopPropagation();
     const ok = await copyText(code);
-    if (ok) Message.success(`已复制编号 ${code}`);
-    else Message.error('复制失败，请手动选择复制');
+    if (ok) Message.success(tr('copiedCode', { code }));
+    else Message.error(tr('copyFailed'));
   };
   return (
-    <Tooltip content="点击复制任务编号">
+    <Tooltip content={tr('copyCode')}>
       <span style={codeChipStyle} onClick={onClick}>
         {code}
       </span>
@@ -197,7 +191,7 @@ async function request(method, url, body) {
       data = {};
     }
   }
-  if (!res.ok) throw new Error(data.error || `请求失败 (${res.status})`);
+  if (!res.ok) throw new Error(data.error || t('requestFailed', { status: res.status }));
   return data;
 }
 
@@ -245,6 +239,7 @@ function ProjectSidebar({
   onOpenTask,
 }) {
   const [hoverId, setHoverId] = useState(null);
+  const { t: tr } = useI18n();
   return (
     <>
       <div
@@ -258,29 +253,29 @@ function ProjectSidebar({
         }}
       >
         <Title heading={5} style={{ margin: 0 }}>
-          看板
+          {tr('boards')}
         </Title>
         <Space size={4}>
           {/* 新建看板：与顶栏、列头一致，只用加号图标 + 悬停提示 */}
-          <Tooltip content="新建看板">
+          <Tooltip content={tr('newBoard')}>
             <Button
               type="primary"
               size="small"
               shape="circle"
               icon={<IconPlus />}
-              aria-label="新建看板"
+              aria-label={tr('newBoard')}
               onClick={onNew}
             />
           </Tooltip>
           {onCollapse && (
-            <Tooltip content="收起侧栏">
+            <Tooltip content={tr('collapseSidebar')}>
               <Button size="small" type="text" icon={<IconMenuFold />} onClick={onCollapse} />
             </Tooltip>
           )}
         </Space>
       </div>
       <div style={{ overflowY: 'auto', flex: 1, minHeight: 0, paddingBottom: 16 }}>
-        {projects.length === 0 && <Empty style={{ marginTop: 40 }} description="还没有项目" />}
+        {projects.length === 0 && <Empty style={{ marginTop: 40 }} description={tr('noBoards')} />}
         {projects.map((p) => {
           const active = p.id === selectedId;
           const open = expandedId === p.id;
@@ -317,7 +312,7 @@ function ProjectSidebar({
                       e.stopPropagation();
                       onToggleExpand(p.id);
                     }}
-                    title={open ? '收起任务清单' : '展开任务清单'}
+                    title={open ? tr('collapseTaskList') : tr('expandTaskList')}
                     style={{
                       flexShrink: 0,
                       width: 18,
@@ -348,7 +343,7 @@ function ProjectSidebar({
                     {p.name}
                   </Text>
                   <Space size={4}>
-                    <Tooltip content="重命名">
+                    <Tooltip content={tr('renameBoard')}>
                       <Button
                         size="mini"
                         type="text"
@@ -359,7 +354,7 @@ function ProjectSidebar({
                         }}
                       />
                     </Tooltip>
-                    <Popconfirm title="删除该项目及其任务？" onOk={() => onDelete(p)}>
+                    <Popconfirm title={tr('deleteBoardConfirm')} onOk={() => onDelete(p)}>
                       <Button
                         size="mini"
                         type="text"
@@ -372,7 +367,7 @@ function ProjectSidebar({
                 </div>
                 <div style={{ marginTop: 4, paddingLeft: 26 }}>
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    {p.task_count ?? 0} 个任务
+                    {tr('taskCount', { n: p.task_count ?? 0 })}
                   </Text>
                 </div>
               </div>
@@ -388,7 +383,7 @@ function ProjectSidebar({
                 >
                   {loadingTasksOf === p.id ? (
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      加载中…
+                      {tr('loading')}
                     </Text>
                   ) : !rows || rows.length === 0 ? null : (
                     <Space direction="vertical" size={2} style={{ width: '100%' }}>
@@ -464,7 +459,7 @@ function ProjectSidebar({
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-text-1)')}
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-3)')}
         >
-          GitHub 开源仓库
+          {tr('repoLink')}
         </a>
       </div>
     </>
@@ -477,6 +472,8 @@ function ProjectSidebar({
  * 会冒泡到整卡可点的 onClick 上把卡片折叠掉。
  */
 function TaskDetail({ task, tracks, trackDraft, setTrackDraft, onSubmitTrack, onDelTrack, fmtTs }) {
+  const { t: tr } = useI18n();
+  const { STATUS_META, PRIORITY_META } = useMeta();
   return (
     <div
       onClick={(e) => e.stopPropagation()}
@@ -492,25 +489,26 @@ function TaskDetail({ task, tracks, trackDraft, setTrackDraft, onSubmitTrack, on
           {PRIORITY_META[task.priority]?.label || task.priority}
         </Tag>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          创建 {fmtTs(task.created_at)}
+          {tr('createdAt')} {fmtTs(task.created_at)}
         </Text>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          更新 {fmtTs(task.updated_at)}
+          {tr('updatedAt')} {fmtTs(task.updated_at)}
         </Text>
         {task.assignee && (
           <Tag color={leaseExpired(task) ? 'red' : 'cyan'}>
-            认领人 {task.assignee}
-            {leaseExpired(task) ? '（租约超时）' : ''}
+            {tr('assignee')} {task.assignee}
+            {leaseExpired(task) ? tr('leaseExpiredTag') : ''}
           </Tag>
         )}
       </Space>
 
       {(task.attempts || 0) > 0 && (
         <div style={{ fontSize: 12, marginBottom: 10 }}>
-          <Tag color="red">失败 {task.attempts} 次</Tag>
+          <Tag color="red">{tr('failedTimes', { n: task.attempts })}</Tag>
           {task.last_error && (
             <Text type="secondary" style={{ fontSize: 12 }}>
-              最近错误：{task.last_error}
+              {tr('lastError')}
+              {task.last_error}
             </Text>
           )}
         </div>
@@ -526,18 +524,18 @@ function TaskDetail({ task, tracks, trackDraft, setTrackDraft, onSubmitTrack, on
           }}
         >
           <Text bold style={{ fontSize: 12 }}>
-            产出：
+            {tr('result')}
           </Text>
           {task.result}
         </div>
       )}
 
       <Text bold style={{ fontSize: 13 }}>
-        跟踪记录
+        {tr('tracks')}
       </Text>
       <div style={{ marginTop: 8, maxHeight: 220, overflowY: 'auto' }}>
         {tracks.length === 0 ? (
-          <Empty description="暂无跟踪记录" imageStyle={{ height: 30 }} />
+          <Empty description={tr('noTracks')} imageStyle={{ height: 30 }} />
         ) : (
           tracks.map((tr) => (
             <div
@@ -578,7 +576,7 @@ function TaskDetail({ task, tracks, trackDraft, setTrackDraft, onSubmitTrack, on
       </div>
       <Input
         size="small"
-        placeholder="添加一条跟踪记录，回车提交"
+        placeholder={tr('addTrackPlaceholder')}
         value={trackDraft}
         onChange={setTrackDraft}
         onPressEnter={onSubmitTrack}
@@ -589,6 +587,8 @@ function TaskDetail({ task, tracks, trackDraft, setTrackDraft, onSubmitTrack, on
 }
 
 export default function App() {
+  const { t: tr, lang, setLang } = useI18n();
+  const { STATUS_META, PRIORITY_META } = useMeta();
   const [projects, setProjects] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -819,17 +819,17 @@ export default function App() {
 
   const submitProject = async () => {
     if (!projModal.name.trim()) {
-      Message.warning('请输入项目名');
+      Message.warning(tr('needProjectName'));
       return;
     }
     setBusy(true);
     try {
       if (projModal.editing) {
         await api.renameProject(projModal.editing.id, projModal.name.trim());
-        Message.success('已重命名');
+        Message.success(tr('renamed'));
       } else {
         await api.createProject(projModal.name.trim(), projModal.description.trim());
-        Message.success('已创建项目');
+        Message.success(tr('boardCreated'));
       }
       setProjModal({ ...projModal, open: false });
       const list = await loadProjects();
@@ -846,7 +846,7 @@ export default function App() {
   const deleteProject = async (p) => {
     try {
       await api.deleteProject(p.id);
-      Message.success('已删除项目');
+      Message.success(tr('boardDeleted'));
       const list = await loadProjects();
       if (selectedId === p.id) setSelectedId(list.length ? list[0].id : null);
       // 顺手清掉侧栏里这个项目的任务缓存，避免下次重建同名项目时看到旧数据
@@ -865,7 +865,7 @@ export default function App() {
   /* --------------------------- 任务操作 --------------------------- */
   const openNewTask = () => {
     if (!selectedId) {
-      Message.warning('请先选择或创建项目');
+      Message.warning(tr('needProjectFirst'));
       return;
     }
     setTaskModal({
@@ -889,7 +889,7 @@ export default function App() {
 
   const submitTask = async () => {
     if (!taskModal.title.trim()) {
-      Message.warning('请输入标题');
+      Message.warning(tr('needTitle'));
       return;
     }
     setBusy(true);
@@ -901,7 +901,7 @@ export default function App() {
           status: taskModal.status,
           priority: taskModal.priority,
         });
-        Message.success('已更新');
+        Message.success(tr('updated'));
       } else {
         await api.createTask(selectedId, {
           title: taskModal.title.trim(),
@@ -909,7 +909,7 @@ export default function App() {
           status: taskModal.status,
           priority: taskModal.priority,
         });
-        Message.success('已添加');
+        Message.success(tr('added'));
       }
       setTaskModal({ ...taskModal, open: false });
       await loadTasks(selectedId);
@@ -923,7 +923,7 @@ export default function App() {
   const deleteTask = async (t) => {
     try {
       await api.deleteTask(t.id);
-      Message.success('已删除');
+      Message.success(tr('deleted'));
       await loadTasks(selectedId);
     } catch (e) {
       Message.error(e.message);
@@ -953,7 +953,7 @@ export default function App() {
     const title = (draft[s] || '').trim();
     if (!title) return;
     if (!selectedId) {
-      Message.warning('请先选择或创建项目');
+      Message.warning(tr('needProjectFirst'));
       return;
     }
     setBusy(true);
@@ -966,7 +966,7 @@ export default function App() {
       });
       setDraft({ ...draft, [s]: '' });
       setAdding(null);
-      Message.success('已添加');
+      Message.success(tr('added'));
       await loadTasks(selectedId);
     } catch (e) {
       Message.error(e.message);
@@ -1052,7 +1052,7 @@ export default function App() {
       const row = await api.addTrack(tid, content);
       setTracks((prev) => [...prev, row]);
       setTrackDraft('');
-      Message.success('已添加跟踪记录');
+      Message.success(tr('trackAdded'));
     } catch (e) {
       Message.error(e.message);
     }
@@ -1178,7 +1178,7 @@ export default function App() {
                 minWidth: 0,
               }}
             >
-              <Tooltip content={isNarrow || !siderOpen ? '显示项目列表' : '收起项目列表'}>
+              <Tooltip content={isNarrow || !siderOpen ? tr('showProjectList') : tr('collapseProjectList')}>
                 <Button
                   type="text"
                   style={{ marginTop: 2 }}
@@ -1190,7 +1190,7 @@ export default function App() {
                 {/* 标题优先完整显示：不加 ellipsis，让它自然换行；
                     只有容器真放不下时才靠 flex 收缩 + overflow 兜底。*/}
                 <Title heading={5} style={{ margin: 0, lineHeight: '22px' }}>
-                  {selected ? selected.name : '未选择项目'}
+                  {selected ? selected.name : tr('noProjectSelected')}
                 </Title>
                 {selected && selected.description && (
                   <Text
@@ -1205,19 +1205,19 @@ export default function App() {
             {/* 顶栏右侧收成一排图标：搜索 / 新建 / 同步状态 / 设置。
             搜索点开才展开输入框，避免常驻输入框把标题挤窄（窄屏尤其明显）。*/}
             <Space size={4} style={{ flexShrink: 0 }}>
-              <Tooltip content="搜索任务（编号 / 标题 / 内容 / 项目）">
+              <Tooltip content={tr('searchTasksTooltip')}>
                 <Button
                   type="text"
                   icon={<IconSearch />}
-                  aria-label="搜索"
+                  aria-label={tr('search')}
                   onClick={() => setSearchOpen((v) => !v)}
                 />
               </Tooltip>
-              <Tooltip content="新建任务">
+              <Tooltip content={tr('newTask')}>
                 <Button
                   type="text"
                   icon={<IconPlus />}
-                  aria-label="新建任务"
+                  aria-label={tr('newTask')}
                   onClick={openNewTask}
                   disabled={!selected}
                 />
@@ -1227,11 +1227,11 @@ export default function App() {
                 position="br"
                 visible={settingsOpen}
                 onChange={setSettingsOpen}
-                // 深浅色 + 展现形式 + 同步状态收进同一个设置菜单，顶栏不再散落
+                // 深浅色 + 界面语言 + 展现形式 + 同步状态收进同一个设置菜单，顶栏不再散落
                 content={
                   <div style={{ width: 248 }}>
                     <Text bold style={{ fontSize: 13 }}>
-                      主题
+                      {tr('theme')}
                     </Text>
                     <RadioGroup
                       type="button"
@@ -1242,20 +1242,45 @@ export default function App() {
                     >
                       <Radio value="light">
                         <Space size={4}>
-                          <IconSun />浅色
+                          <IconSun />
+                          {tr('light')}
                         </Space>
                       </Radio>
                       <Radio value="dark">
                         <Space size={4}>
-                          <IconMoon />深色
+                          <IconMoon />
+                          {tr('dark')}
                         </Space>
                       </Radio>
                     </RadioGroup>
 
                     <Divider style={{ margin: '14px 0 12px' }} />
 
+                    {/* 界面语言：与主题同级的偏好，切换后整页文案立即重绘 */}
                     <Text bold style={{ fontSize: 13 }}>
-                      任务列表展现形式
+                      {tr('language')}
+                    </Text>
+                    <RadioGroup
+                      type="button"
+                      size="small"
+                      style={{ marginTop: 8, display: 'flex' }}
+                      value={lang}
+                      onChange={(v) => setLang(v)}
+                    >
+                      {LANGS.map((l) => (
+                        <Radio key={l.value} value={l.value}>
+                          <Space size={4}>
+                            <IconLanguage />
+                            {l.label}
+                          </Space>
+                        </Radio>
+                      ))}
+                    </RadioGroup>
+
+                    <Divider style={{ margin: '14px 0 12px' }} />
+
+                    <Text bold style={{ fontSize: 13 }}>
+                      {tr('viewMode')}
                     </Text>
                     <RadioGroup
                       type="button"
@@ -1264,15 +1289,15 @@ export default function App() {
                       value={viewMode}
                       onChange={(v) => setViewMode(v)}
                     >
-                      <Radio value="board">竖版看板</Radio>
-                      <Radio value="list">横版分组</Radio>
+                      <Radio value="board">{tr('viewBoard')}</Radio>
+                      <Radio value="list">{tr('viewList')}</Radio>
                     </RadioGroup>
 <div style={{ marginTop: 8 }}>
                     <Text type="secondary" style={{ fontSize: 12, lineHeight: '18px' }}>
-                      竖版：状态列并排，适合宽屏。
+                      {tr('viewBoardHint')}
                       <br />
-                      横版：按状态分组、组内列表，整行可点，手机更顺手。
-                      {isNarrow && !isListView ? ' 手机上建议用横版。' : ''}
+                      {tr('viewListHint')}
+                      {isNarrow && !isListView ? tr('viewNarrowHint') : ''}
                     </Text>
                   </div>
 
@@ -1292,26 +1317,30 @@ export default function App() {
                       }}
                     />
                     <Text bold style={{ fontSize: 13 }}>
-                      数据同步
+                      {tr('sync')}
                     </Text>
                   </div>
                   <div style={{ marginTop: 6 }}>
                     <Text type="secondary" style={{ fontSize: 12, lineHeight: '18px' }}>
                       {syncedAt
-                        ? `上次同步 ${new Date(syncedAt).toLocaleTimeString('zh-CN')}`
-                        : '实时同步中，正在建立连接'}
+                        ? tr('lastSync', {
+                            time: new Date(syncedAt).toLocaleTimeString(
+                              lang === 'zh' ? 'zh-CN' : 'en-US'
+                            ),
+                          })
+                        : tr('syncing')}
                       <br />
-                      数据有变化时才刷新（服务端每秒探测一次），没变化不会打扰。
+                      {tr('syncHint')}
                     </Text>
                   </div>
                 </div>
               }
               >
-                <Tooltip content="设置">
+                <Tooltip content={tr('settings')}>
                   <Button
                     type="text"
                     icon={<IconSettings />}
-                    aria-label="设置"
+                    aria-label={tr('settings')}
                   />
                 </Tooltip>
               </Popover>
@@ -1330,7 +1359,7 @@ export default function App() {
                 allowClear
                 autoFocus
                 size="small"
-                placeholder="模糊搜索任务（编号 / 标题 / 内容 / 项目）"
+                placeholder={tr('searchPlaceholder')}
                 prefix={<IconSearch />}
                 value={searchQuery}
                 onChange={(v) => setSearchQuery(v)}
@@ -1356,18 +1385,18 @@ export default function App() {
                 }}
               >
                 <Title heading={6} style={{ margin: 0 }}>
-                  搜索结果 {searching ? '(搜索中…)' : `(${searchResults.length} 条)`}
+                  {tr('searchResults')} {searching ? tr('searching') : tr('countSuffix', { n: searchResults.length })}
                 </Title>
                 <Button
                   size="small"
                   icon={<IconRefresh />}
                   onClick={() => runSearch(searchQuery)}
                 >
-                  重新搜索
+                  {tr('searchAgain')}
                 </Button>
               </div>
               {searchResults.length === 0 ? (
-                <Empty description="没有匹配的任务" style={{ marginTop: 60 }} />
+                <Empty description={tr('noSearchResult')} style={{ marginTop: 60 }} />
               ) : (
                 <Space direction="vertical" style={{ width: '100%' }} size={12}>
                   {searchResults.map((t) => (
@@ -1415,7 +1444,7 @@ export default function App() {
             </div>
           ) : !selected ? (
             <Empty
-              description="请选择左侧项目，或新建一个看板"
+              description={tr('pickProject')}
               style={{ marginTop: 80 }}
             />
           ) : isListView ? (
@@ -1425,7 +1454,7 @@ export default function App() {
             <div style={{ height: '100%', overflowY: 'auto', paddingRight: 2 }}>
               {COLUMNS.filter((s) => !loading && tasksByCol(s).length === 0).length ===
               COLUMNS.length ? (
-                <Empty description="这个看板还没有任务" style={{ marginTop: 60 }} />
+                <Empty description={tr('emptyBoard')} style={{ marginTop: 60 }} />
               ) : (
                 COLUMNS.map((s) => {
                   const list = tasksByCol(s);
@@ -1455,7 +1484,7 @@ export default function App() {
                         <Tag color={STATUS_META[s].color}>{STATUS_META[s].label}</Tag>
                         <Text type="secondary">{list.length}</Text>
                       </Space>
-                      <Tooltip content="在此分组添加任务">
+                      <Tooltip content={tr('addInGroup')}>
                         <Button
                           size="mini"
                           type="text"
@@ -1471,7 +1500,7 @@ export default function App() {
                         <Input
                           autoFocus
                           size="small"
-                          placeholder="输入任务标题，回车添加"
+                          placeholder={tr('taskTitlePlaceholder')}
                           value={draft[s] || ''}
                           onChange={(v) => setDraft({ ...draft, [s]: v })}
                           onPressEnter={() => submitInline(s)}
@@ -1479,7 +1508,7 @@ export default function App() {
                         />
                         <Space size={8}>
                           <Button size="mini" type="primary" loading={busy} onClick={() => submitInline(s)}>
-                            添加
+                              {tr('add')}
                           </Button>
                           <Button
                             size="mini"
@@ -1488,7 +1517,7 @@ export default function App() {
                               setDraft({ ...draft, [s]: '' });
                             }}
                           >
-                            取消
+                            {tr('cancel')}
                           </Button>
                         </Space>
                       </Space>
@@ -1496,7 +1525,7 @@ export default function App() {
 
                     {/* 空分组已在 map 开头return 掉，这里 list 必然非空 */}
                     {loading ? (
-                      <Empty description="加载中…" imageStyle={{ height: 30 }} />
+                      <Empty description={tr('loading')} imageStyle={{ height: 30 }} />
                     ) : (
                       <Space direction="vertical" style={{ width: '100%' }} size={8}>
                         {list.map((t) => (
@@ -1551,19 +1580,19 @@ export default function App() {
                                   </Tag>
                                   {t.assignee && (
                                     <Tag color={leaseExpired(t) ? 'red' : 'cyan'}>
-                                      {leaseExpired(t) ? `${t.assignee} · 超时` : t.assignee}
+                                      {leaseExpired(t) ? `${t.assignee} · ${tr('expiredSuffix')}` : t.assignee}
                                     </Tag>
                                   )}
                                   {(t.attempts || 0) > 0 && (
-                                    <Tooltip content={t.last_error || '尚无错误详情'}>
-                                      <Tag color="red">失败 {t.attempts} 次</Tag>
+                                    <Tooltip content={t.last_error || tr('noErrorDetail')}>
+                                      <Tag color="red">{tr('failedTimes', { n: t.attempts })}</Tag>
                                     </Tooltip>
                                   )}
                                 </Space>
                               </div>
                               {/* 右侧操作：移动到其他状态。stopPropagation 保住"点它不触发展开" */}
                               <div onClick={(e) => e.stopPropagation()} style={{ flexShrink: 0 }}>
-                                <Tooltip content="移动到其他分组">
+                                <Tooltip content={tr('moveToGroup')}>
                                   <Dropdown
                                     position="br"
                                     droplist={
@@ -1634,7 +1663,7 @@ export default function App() {
                         <Text type="secondary">{list.length}</Text>
                         {/* 加号是唯一的添加入口（原先底部还有个虚线「添加任务」长按钮，
                             与列头加号重复，已删除）*/}
-                        <Tooltip content="在此列添加任务">
+                        <Tooltip content={tr('addInColumn')}>
                           <Button
                             size="mini"
                             type="text"
@@ -1647,7 +1676,7 @@ export default function App() {
                     </div>
                     <div style={{ overflowY: 'auto', flex: 1 }}>
                       {loading ? (
-                        <Empty description="加载中…" style={{ marginTop: 24 }} />
+                        <Empty description={tr('loading')} style={{ marginTop: 24 }} />
                       ) : (
                         <Space direction="vertical" style={{ width: '100%' }} size={12}>
                           {list.map((t) => (
@@ -1701,7 +1730,7 @@ export default function App() {
                                     icon={<IconEdit />}
                                     onClick={() => openEditTask(t)}
                                   />
-                                  <Popconfirm title="删除该任务？" onOk={() => deleteTask(t)}>
+                                  <Popconfirm title={tr('deleteTaskConfirm')} onOk={() => deleteTask(t)}>
                                     <Button size="mini" type="text" status="danger" icon={<IconDelete />} />
                                   </Popconfirm>
                                 </Space>
@@ -1724,21 +1753,21 @@ export default function App() {
                                   <Tooltip
                                     content={
                                       leaseExpired(t)
-                                        ? '租约已过期，随时会被回收'
-                                        : `由 ${t.assignee} 持有至 ${fmtTs(t.lease_until)}`
+                                        ? tr('leaseExpiredTip')
+                                        : tr('leaseHeldTip', { who: t.assignee, when: fmtTs(t.lease_until) })
                                     }
                                   >
                                     <Tag color={leaseExpired(t) ? 'red' : 'cyan'}>
-                                      {leaseExpired(t) ? `${t.assignee} · 超时` : t.assignee}
+                                      {leaseExpired(t) ? `${t.assignee} · ${tr('expiredSuffix')}` : t.assignee}
                                     </Tag>
                                   </Tooltip>
                                 )}
                                 {(t.attempts || 0) > 0 && (
-                                  <Tooltip content={t.last_error || '尚无错误详情'}>
-                                    <Tag color="red">失败 {t.attempts} 次</Tag>
+                                  <Tooltip content={t.last_error || tr('noErrorDetail')}>
+                                    <Tag color="red">{tr('failedTimes', { n: t.attempts })}</Tag>
                                   </Tooltip>
                                 )}
-                                <Tooltip content="移动到其他面板">
+                                <Tooltip content={tr('moveToPanel')}>
                                   <Dropdown
                                     position="br"
                                     droplist={
@@ -1775,7 +1804,7 @@ export default function App() {
                         <Input
                           autoFocus
                           size="small"
-                          placeholder="输入任务标题，回车添加"
+                          placeholder={tr('taskTitlePlaceholder')}
                           value={draft[s]}
                           onChange={(v) => setDraft({ ...draft, [s]: v })}
                           onPressEnter={() => submitInline(s)}
@@ -1788,7 +1817,7 @@ export default function App() {
                             loading={busy}
                             onClick={() => submitInline(s)}
                           >
-                            添加
+                              {tr('add')}
                           </Button>
                           <Button
                             size="mini"
@@ -1797,7 +1826,7 @@ export default function App() {
                               setDraft({ ...draft, [s]: '' });
                             }}
                           >
-                            取消
+                            {tr('cancel')}
                           </Button>
                         </Space>
                       </Space>
@@ -1813,25 +1842,25 @@ export default function App() {
       </Layout>
 
       <Modal
-        title={projModal.editing ? '重命名项目' : '新建项目'}
+        title={projModal.editing ? tr('renameBoard') : tr('newBoard')}
         visible={projModal.open}
         onOk={submitProject}
         onCancel={() => setProjModal({ ...projModal, open: false })}
         confirmLoading={busy}
-        okText="保存"
-        cancelText="取消"
+        okText={tr('save')}
+        cancelText={tr('cancel')}
       >
         <Space direction="vertical" style={{ width: '100%' }} size={20}>
-          <Field label="名称">
+          <Field label={tr('name')}>
             <Input
-              placeholder="项目名称"
+              placeholder={tr('name')}
               value={projModal.name}
               onChange={(v) => setProjModal({ ...projModal, name: v })}
             />
           </Field>
-          <Field label="描述">
+          <Field label={tr('description')}>
             <Input.TextArea
-              placeholder="可选"
+              placeholder={tr('optional')}
               value={projModal.description}
               onChange={(v) => setProjModal({ ...projModal, description: v })}
             />
@@ -1840,32 +1869,32 @@ export default function App() {
       </Modal>
 
       <Modal
-        title={taskModal.editing ? '编辑任务' : '新建任务'}
+        title={taskModal.editing ? tr('editTask') : tr('newTaskTitle')}
         visible={taskModal.open}
         onOk={submitTask}
         onCancel={() => setTaskModal({ ...taskModal, open: false })}
         confirmLoading={busy}
-        okText="保存"
-        cancelText="取消"
+        okText={tr('save')}
+        cancelText={tr('cancel')}
       >
         <Space direction="vertical" style={{ width: '100%' }} size={20}>
-          <Field label="标题">
+          <Field label={tr('title')}>
             <Input
-              placeholder="任务标题"
+              placeholder={tr('taskTitle')}
               value={taskModal.title}
               onChange={(v) => setTaskModal({ ...taskModal, title: v })}
             />
           </Field>
-          <Field label="内容">
+          <Field label={tr('content')}>
             <Input.TextArea
-              placeholder="任务内容"
+              placeholder={tr('taskContent')}
               autoSize
               value={taskModal.content}
               onChange={(v) => setTaskModal({ ...taskModal, content: v })}
             />
           </Field>
           <Space size={20} wrap>
-            <Field label="状态">
+            <Field label={tr('status')}>
               <Select
                 value={taskModal.status}
                 style={{ width: 140 }}
@@ -1873,7 +1902,7 @@ export default function App() {
                 options={COLUMNS.map((s) => ({ value: s, label: STATUS_META[s].label }))}
               />
             </Field>
-            <Field label="优先级">
+            <Field label={tr('priority')}>
               <Select
                 value={taskModal.priority}
                 style={{ width: 140 }}

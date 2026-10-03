@@ -10,7 +10,7 @@
 
 > Humans and agents write on the same local board: work flows through seven columns, and you can see at a glance who claimed what, how far it got, and where it is stuck.
 
-![UI screenshot](https://cdn.jsdelivr.net/gh/isnotry/TaskToAgent@main/docs/screenshot.png)
+![UI screenshot](https://cdn.jsdelivr.net/gh/isnotry/TaskToAgent@main/docs/screenshot-en.png)
 
 ---
 
@@ -22,6 +22,7 @@ A **local-first** task board. The `t2a` command line handles quick create / upda
 
 - **Zero external dependencies** —— Node built-ins only; runs without `npm install` because the build output is committed.
 - **Local storage** —— Data lives in a local SQLite file (default `~/.t2a/t2a.db`); no network calls, no cloud service.
+- **Chinese / English UI** —— Switch from the settings menu; the choice is remembered in the browser, and first-time visitors get the language their browser asks for.
 - **Two frontends, one database** —— CLI and web board read the same file; a change on either side shows up on the other immediately.
 - **Seven columns** —— idea → todo → doing → blocked → review → done → archive, with in-panel add and drag.
 - **Atomic claim** —— `task next` claims via a single `UPDATE ... WHERE`, so two agents racing never take the same task.
@@ -50,6 +51,21 @@ npm run web
 # Command line
 node bin/t2a help
 ```
+
+## UI reference
+
+The top bar ends in a row of icons: search, new task, settings. **Settings** gathers every preference in one place:
+
+| Where | Option | What it does |
+|---|---|---|
+| Settings menu | Theme | Light / dark, following the system preference |
+| Settings menu | Language | 简体中文 / English; the whole page redraws immediately |
+| Settings menu | Task list layout | Board (status columns side by side, best on wide screens) / Grouped list (whole rows clickable, better on phones) |
+| Settings menu | Data sync | Shows when the last sync happened and explains the refresh policy |
+| Sidebar | Board list | Click a name to switch boards; the arrow expands that board's tasks in place |
+| Task card | Whole card | Expands task details: result, activity log, assignee and lease |
+
+The language choice is stored in the browser (`t2a-lang`) and applies to that device only; CLI output stays in Chinese.
 
 ## CLI reference
 
@@ -189,6 +205,7 @@ TaskToAgent/
 │   ├── server.js      # Zero-dependency http server: REST API + static hosting
 │   ├── dist/          # Front-end build output (committed, works out of the box)
 │   └── ui/            # Front-end source (Vite + React + Arco Design)
+│       └── src/i18n.jsx  # Chinese/English copy dictionary and language switching
 ├── docs/              # README images
 └── package.json
 ```

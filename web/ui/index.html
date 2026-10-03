@@ -41,6 +41,21 @@
         document.body.setAttribute('arco-theme', theme);
         document.documentElement.setAttribute('arco-theme', theme);
       } catch (e) {}
+
+      // 语言同理：React 挂载前先定好 <html lang> 与标题，
+      // 否则英文用户会先看到一帧中文标题再被改写。
+      try {
+        var savedLang = localStorage.getItem('t2a-lang');
+        var lang =
+          savedLang === 'zh' || savedLang === 'en'
+            ? savedLang
+            : /^zh/i.test(navigator.language || '')
+              ? 'zh'
+              : 'en';
+        document.documentElement.setAttribute('lang', lang === 'zh' ? 'zh-CN' : 'en');
+        document.title =
+          lang === 'zh' ? 'TaskToAgent · 任务看板' : 'TaskToAgent · Task Board';
+      } catch (e) {}
     </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
