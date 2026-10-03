@@ -661,6 +661,8 @@ export default function App() {
 
   // 设置菜单（顶栏齿轮）：主题 + 展现形式收在一处
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 搜索框默认收起，点顶栏放大镜才展开一行（避免常驻输入框挤窄标题）
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const loadProjects = useCallback(async () => {
     const list = await api.listProjects();
@@ -1084,13 +1086,13 @@ export default function App() {
       <Layout>
         <Header
           style={{
+            // 竖向容器：第一行 = 项目标题 + 图标排；第二行 = 展开的搜索框
             display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 20,
+            flexDirection: 'column',
+            alignItems: 'stretch',
+            gap: 0,
             height: 'auto',
-            minHeight: 64,
-            padding: '12px 20px',
+            padding: 0,
             borderBottom: '1px solid var(--color-border-2)',
             background: 'var(--color-bg-2)',
           }}
@@ -1098,128 +1100,175 @@ export default function App() {
           <div
             style={{
               display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'center',
-              gap: 12,
-              flex: 1,
-              minWidth: 0,
+              gap: 20,
+              minHeight: 64,
+              padding: '12px 20px',
             }}
           >
-            <Tooltip content={isNarrow || !siderOpen ? '显示项目列表' : '收起项目列表'}>
-              <Button
-                type="text"
-                icon={!isNarrow && siderOpen ? <IconMenuFold /> : <IconMenu />}
-                onClick={openMenu}
-              />
-            </Tooltip>
-            <div style={{ minWidth: 0 }}>
-              <Title heading={5} style={{ margin: 0 }} ellipsis>
-                {selected ? selected.name : '未选择项目'}
-              </Title>
-              {selected && selected.description && (
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {selected.description}
-                </Text>
-              )}
-            </div>
-          </div>
-          <Space size={12} style={{ flexShrink: 0 }}>
-            <Input
-              allowClear
-              size="small"
-              style={{ width: isNarrow ? 200 : 320 }}
-              placeholder="模糊搜索任务（编号/标题/内容/项目）"
-              prefix={<IconSearch />}
-              value={searchQuery}
-              onChange={(v) => setSearchQuery(v)}
-              onClear={() => {
-                setSearchQuery('');
-                setSearchResults(null);
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                flex: 1,
+                minWidth: 0,
               }}
-            />
-            <Popover
-              trigger="click"
-              position="br"
-              visible={settingsOpen}
-              onChange={setSettingsOpen}
-              // 深浅色 + 展现形式收进同一个设置菜单，顶栏不再散落
-              content={
-                <div style={{ width: 232 }}>
-                  <Text bold style={{ fontSize: 13 }}>
-                    主题
-                  </Text>
-                  <RadioGroup
-                    type="button"
-                    size="small"
-                    style={{ marginTop: 8, display: 'flex' }}
-                    value={isDark ? 'dark' : 'light'}
-                    onChange={(v) => setIsDark(v === 'dark')}
-                  >
-                    <Radio value="light">
-                      <Space size={4}>
-                        <IconSun />浅色
-                      </Space>
-                    </Radio>
-                    <Radio value="dark">
-                      <Space size={4}>
-                        <IconMoon />深色
-                      </Space>
-                    </Radio>
-                  </RadioGroup>
-
-                  <Divider style={{ margin: '14px 0 12px' }} />
-
-                  <Text bold style={{ fontSize: 13 }}>
-                    任务列表展现形式
-                  </Text>
-                  <RadioGroup
-                    type="button"
-                    size="small"
-                    style={{ marginTop: 8, display: 'flex' }}
-                    value={viewMode}
-                    onChange={(v) => setViewMode(v)}
-                  >
-                    <Radio value="board">竖版看板</Radio>
-                    <Radio value="list">横版分组</Radio>
-                  </RadioGroup>
-                  <div style={{ marginTop: 8 }}>
-                    <Text type="secondary" style={{ fontSize: 12, lineHeight: '18px' }}>
-                      竖版：状态列并排，适合宽屏。
-                      <br />
-                      横版：按状态分组、组内列表，整行可点，手机更顺手。
-                      {isNarrow && !isListView ? ' 手机上建议用横版。' : ''}
-                    </Text>
-                  </div>
-                </div>
-              }
             >
-              <Tooltip content="设置">
+              <Tooltip content={isNarrow || !siderOpen ? '显示项目列表' : '收起项目列表'}>
                 <Button
-                  shape="circle"
-                  icon={<IconSettings />}
-                  aria-label="设置"
+                  type="text"
+                  icon={!isNarrow && siderOpen ? <IconMenuFold /> : <IconMenu />}
+                  onClick={openMenu}
                 />
               </Tooltip>
-            </Popover>
-            <Tooltip
-              content={
-                syncedAt
-                  ? `数据变化时才刷新（服务端 1s 探测一次）；上次同步 ${new Date(syncedAt).toLocaleTimeString('zh-CN')}`
-                  : '数据变化时才刷新，没变化不会刷新'
-              }
+              <div style={{ minWidth: 0 }}>
+                <Title heading={5} style={{ margin: 0 }} ellipsis>
+                  {selected ? selected.name : '未选择项目'}
+                </Title>
+                {selected && selected.description && (
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {selected.description}
+                  </Text>
+                )}
+              </div>
+          </div>
+            {/* 顶栏右侧收成一排图标：搜索 / 新建 / 同步状态 / 设置。
+            搜索点开才展开输入框，避免常驻输入框把标题挤窄（窄屏尤其明显）。*/}
+            <Space size={4} style={{ flexShrink: 0 }}>
+              <Tooltip content="搜索任务（编号 / 标题 / 内容 / 项目）">
+                <Button
+                  type="text"
+                  icon={<IconSearch />}
+                  aria-label="搜索"
+                  onClick={() => setSearchOpen((v) => !v)}
+                />
+              </Tooltip>
+              <Tooltip content="新建任务">
+                <Button
+                  type="text"
+                  icon={<IconPlus />}
+                  aria-label="新建任务"
+                  onClick={openNewTask}
+                  disabled={!selected}
+                />
+              </Tooltip>
+              <Tooltip
+                content={
+                  syncedAt
+                    ? `数据变化时才刷新（服务端 1s 探测一次）；上次同步 ${new Date(syncedAt).toLocaleTimeString('zh-CN')}`
+                    : '数据变化时才刷新，没变化不会刷新'
+                }
+              >
+                {/* 同步状态只用一个小圆点表示，不占横向空间；悬停看时间 */}
+                <span
+                  title={
+                    syncedAt
+                      ? `上次同步 ${new Date(syncedAt).toLocaleTimeString('zh-CN')}`
+                      : '实时同步中'
+                  }
+                  style={{
+                    display: 'inline-block',
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: syncedAt ? 'var(--green-5)' : 'var(--color-text-4)',
+                    margin: '0 8px',
+                    cursor: 'help',
+                  }}
+                />
+              </Tooltip>
+              <Popover
+                trigger="click"
+                position="br"
+                visible={settingsOpen}
+                onChange={setSettingsOpen}
+                // 深浅色 + 展现形式收进同一个设置菜单，顶栏不再散落
+                content={
+                  <div style={{ width: 232 }}>
+                    <Text bold style={{ fontSize: 13 }}>
+                      主题
+                    </Text>
+                    <RadioGroup
+                      type="button"
+                      size="small"
+                      style={{ marginTop: 8, display: 'flex' }}
+                      value={isDark ? 'dark' : 'light'}
+                      onChange={(v) => setIsDark(v === 'dark')}
+                    >
+                      <Radio value="light">
+                        <Space size={4}>
+                          <IconSun />浅色
+                        </Space>
+                      </Radio>
+                      <Radio value="dark">
+                        <Space size={4}>
+                          <IconMoon />深色
+                        </Space>
+                      </Radio>
+                    </RadioGroup>
+
+                    <Divider style={{ margin: '14px 0 12px' }} />
+
+                    <Text bold style={{ fontSize: 13 }}>
+                      任务列表展现形式
+                    </Text>
+                    <RadioGroup
+                      type="button"
+                      size="small"
+                      style={{ marginTop: 8, display: 'flex' }}
+                      value={viewMode}
+                      onChange={(v) => setViewMode(v)}
+                    >
+                      <Radio value="board">竖版看板</Radio>
+                      <Radio value="list">横版分组</Radio>
+                    </RadioGroup>
+                    <div style={{ marginTop: 8 }}>
+                      <Text type="secondary" style={{ fontSize: 12, lineHeight: '18px' }}>
+                        竖版：状态列并排，适合宽屏。
+                        <br />
+                        横版：按状态分组、组内列表，整行可点，手机更顺手。
+                        {isNarrow && !isListView ? ' 手机上建议用横版。' : ''}
+                      </Text>
+                    </div>
+                  </div>
+                }
+              >
+                <Tooltip content="设置">
+                  <Button
+                    type="text"
+                    icon={<IconSettings />}
+                    aria-label="设置"
+                  />
+                </Tooltip>
+              </Popover>
+            </Space>
+          </div>
+
+          {/* 搜索输入框：点放大镜后在标题下方展开一行，避免常驻挤压标题 */}
+          {searchOpen && (
+            <div
+              style={{
+                padding: '0 20px 12px',
+                background: 'var(--color-bg-2)',
+              }}
             >
-              <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-                {syncedAt ? `已同步 ${new Date(syncedAt).toLocaleTimeString('zh-CN')}` : '实时同步中'}
-              </Text>
-            </Tooltip>
-            <Button
-              type="primary"
-              icon={<IconPlus />}
-              onClick={openNewTask}
-              disabled={!selected}
-            >
-              新建任务
-            </Button>
-          </Space>
+              <Input
+                allowClear
+                autoFocus
+                size="small"
+                placeholder="模糊搜索任务（编号 / 标题 / 内容 / 项目）"
+                prefix={<IconSearch />}
+                value={searchQuery}
+                onChange={(v) => setSearchQuery(v)}
+                onClear={() => {
+                  setSearchQuery('');
+                  setSearchResults(null);
+                }}
+              />
+            </div>
+          )}
         </Header>
 
         <Content style={{ padding: 20, overflow: 'hidden' }}>
