@@ -34,13 +34,20 @@
         height: auto;
         min-height: 0;
         overflow: visible;
-        padding-bottom: 4px;
+        /* Arco 默认左右各 12px 内边距，标题可用宽度被吃掉不少，
+           这里压到 4px，让长标题少折一行。 */
+        padding: 0 4px 4px;
       }
       .task-card .arco-card-header-title {
         white-space: normal;
       }
+      /* 卡片左右内边距同步收窄，标题可用宽度再宽一点 */
+      .task-card .arco-card-body {
+        padding-left: 10px;
+        padding-right: 10px;
+      }
     </style>
-    <script type="module" crossorigin src="/assets/index-DYMsziUl.js"></script>
+    <script type="module" crossorigin src="/assets/index-D_MiyBde.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-ejlXSaMb.css">
   </head>
   <body>

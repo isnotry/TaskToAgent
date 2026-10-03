@@ -1640,13 +1640,17 @@ export default function App() {
                   <div
                     key={s}
                     style={{
-                      flex: '1 0 210px',
+                      // 不再 flex:1 瓜分宽度：7 列挤在 1440px 下每列只剩 ~140px，
+                      // 标题可用宽度被压到 100px 出头，英文标题普遍要折3 行、卡片高低不齐。
+                      // 改为「按内容定宽 + 不收缩」，窄了就让容器横向滚动（下面 overflowX:auto），
+                      // 换取每列都有足够宽度容纳标题。
+                      flex: '0 0 auto',
+                      width: 268,
                       display: 'flex',
                       flexDirection: 'column',
                       background: 'var(--color-fill-1)',
                       borderRadius: 10,
                       padding: 14,
-                      minWidth: 190,
                     }}
                   >
                     <div
