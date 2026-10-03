@@ -1145,39 +1145,14 @@ export default function App() {
                   disabled={!selected}
                 />
               </Tooltip>
-              <Tooltip
-                content={
-                  syncedAt
-                    ? `数据变化时才刷新（服务端 1s 探测一次）；上次同步 ${new Date(syncedAt).toLocaleTimeString('zh-CN')}`
-                    : '数据变化时才刷新，没变化不会刷新'
-                }
-              >
-                {/* 同步状态只用一个小圆点表示，不占横向空间；悬停看时间 */}
-                <span
-                  title={
-                    syncedAt
-                      ? `上次同步 ${new Date(syncedAt).toLocaleTimeString('zh-CN')}`
-                      : '实时同步中'
-                  }
-                  style={{
-                    display: 'inline-block',
-                    width: 7,
-                    height: 7,
-                    borderRadius: '50%',
-                    background: syncedAt ? 'var(--green-5)' : 'var(--color-text-4)',
-                    margin: '0 8px',
-                    cursor: 'help',
-                  }}
-                />
-              </Tooltip>
               <Popover
                 trigger="click"
                 position="br"
                 visible={settingsOpen}
                 onChange={setSettingsOpen}
-                // 深浅色 + 展现形式收进同一个设置菜单，顶栏不再散落
+                // 深浅色 + 展现形式 + 同步状态收进同一个设置菜单，顶栏不再散落
                 content={
-                  <div style={{ width: 232 }}>
+                  <div style={{ width: 248 }}>
                     <Text bold style={{ fontSize: 13 }}>
                       主题
                     </Text>
@@ -1215,16 +1190,45 @@ export default function App() {
                       <Radio value="board">竖版看板</Radio>
                       <Radio value="list">横版分组</Radio>
                     </RadioGroup>
-                    <div style={{ marginTop: 8 }}>
-                      <Text type="secondary" style={{ fontSize: 12, lineHeight: '18px' }}>
-                        竖版：状态列并排，适合宽屏。
-                        <br />
-                        横版：按状态分组、组内列表，整行可点，手机更顺手。
-                        {isNarrow && !isListView ? ' 手机上建议用横版。' : ''}
-                      </Text>
-                    </div>
+<div style={{ marginTop: 8 }}>
+                    <Text type="secondary" style={{ fontSize: 12, lineHeight: '18px' }}>
+                      竖版：状态列并排，适合宽屏。
+                      <br />
+                      横版：按状态分组、组内列表，整行可点，手机更顺手。
+                      {isNarrow && !isListView ? ' 手机上建议用横版。' : ''}
+                    </Text>
                   </div>
-                }
+
+                  <Divider style={{ margin: '14px 0 12px' }} />
+
+                  {/* 同步状态：原先是顶栏一个绿点，现收进设置菜单底部 */}
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                  >
+                    <span
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        background: syncedAt ? 'var(--green-5)' : 'var(--color-text-4)',
+                      }}
+                    />
+                    <Text bold style={{ fontSize: 13 }}>
+                      数据同步
+                    </Text>
+                  </div>
+                  <div style={{ marginTop: 6 }}>
+                    <Text type="secondary" style={{ fontSize: 12, lineHeight: '18px' }}>
+                      {syncedAt
+                        ? `上次同步 ${new Date(syncedAt).toLocaleTimeString('zh-CN')}`
+                        : '实时同步中，正在建立连接'}
+                      <br />
+                      数据有变化时才刷新（服务端每秒探测一次），没变化不会打扰。
+                    </Text>
+                  </div>
+                </div>
+              }
               >
                 <Tooltip content="设置">
                   <Button
