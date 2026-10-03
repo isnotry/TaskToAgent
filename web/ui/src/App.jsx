@@ -1572,7 +1572,20 @@ export default function App() {
                       }}
                     >
                       <Tag color={STATUS_META[s].color}>{STATUS_META[s].label}</Tag>
-                      <Text type="secondary">{list.length}</Text>
+                      <Space size={6}>
+                        <Text type="secondary">{list.length}</Text>
+                        {/* 加号是唯一的添加入口（原先底部还有个虚线「添加任务」长按钮，
+                            与列头加号重复，已删除）*/}
+                        <Tooltip content="在此列添加任务">
+                          <Button
+                            size="mini"
+                            type="text"
+                            icon={<IconPlus />}
+                            onClick={() => setAdding(s)}
+                            disabled={!selected}
+                          />
+                        </Tooltip>
+                      </Space>
                     </div>
                     <div style={{ overflowY: 'auto', flex: 1 }}>
                       {loading ? (
@@ -1699,49 +1712,38 @@ export default function App() {
                       )}
                     </div>
                     <div style={{ marginTop: 12, flexShrink: 0 }}>
-                      {adding === s ? (
-                        <Space style={{ width: '100%' }} direction="vertical" size={8}>
-                          <Input
-                            autoFocus
-                            size="small"
-                            placeholder="输入任务标题，回车添加"
-                            value={draft[s]}
-                            onChange={(v) => setDraft({ ...draft, [s]: v })}
-                            onPressEnter={() => submitInline(s)}
-                            disabled={busy}
-                          />
-                          <Space size={8}>
-                            <Button
-                              size="mini"
-                              type="primary"
-                              loading={busy}
-                              onClick={() => submitInline(s)}
-                            >
-                              添加
-                            </Button>
-                            <Button
-                              size="mini"
-                              onClick={() => {
-                                setAdding(null);
-                                setDraft({ ...draft, [s]: '' });
-                              }}
-                            >
-                              取消
-                            </Button>
-                          </Space>
-                        </Space>
-                      ) : (
-                        <Button
-                          long
+                      {adding === s && (
+                      <Space style={{ width: '100%' }} direction="vertical" size={8}>
+                        <Input
+                          autoFocus
                           size="small"
-                          type="dashed"
-                          icon={<IconPlus />}
-                          onClick={() => setAdding(s)}
-                          disabled={!selected}
-                        >
-                          添加任务
-                        </Button>
-                      )}
+                          placeholder="输入任务标题，回车添加"
+                          value={draft[s]}
+                          onChange={(v) => setDraft({ ...draft, [s]: v })}
+                          onPressEnter={() => submitInline(s)}
+                          disabled={busy}
+                        />
+                        <Space size={8}>
+                          <Button
+                            size="mini"
+                            type="primary"
+                            loading={busy}
+                            onClick={() => submitInline(s)}
+                          >
+                            添加
+                          </Button>
+                          <Button
+                            size="mini"
+                            onClick={() => {
+                              setAdding(null);
+                              setDraft({ ...draft, [s]: '' });
+                            }}
+                          >
+                            取消
+                          </Button>
+                        </Space>
+                      </Space>
+                    )}
                     </div>
                   </div>
                 );
