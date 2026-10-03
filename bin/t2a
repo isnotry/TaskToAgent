@@ -1,0 +1,5 @@
+#!/usr/bin/env node
+'use strict';
+
+// TaskToAgent 主命令入口（命令名 t2a）
+require('../src/cli.js');

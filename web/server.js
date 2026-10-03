@@ -3,6 +3,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const brandEnv = require('../src/brand').env;
 
 // node:sqlite 在 Node 22 仍是实验特性，静默其 stderr 警告，保持输出干净
 process.removeAllListeners('warning');
@@ -27,9 +28,9 @@ const {
   logEvent,
 } = require('../src/db');
 
-const PORT = Number(process.env.TASKCLI_PORT || 3979);
-// 默认只监听回环地址，避免局域网无鉴权访问；需要外部访问时设 TASKCLI_HOST=0.0.0.0
-const HOST = process.env.TASKCLI_HOST || '127.0.0.1';
+const PORT = Number(brandEnv('PORT') || 3979);
+// 默认只监听回环地址，避免局域网无鉴权访问；需要外部访问时设 T2A_HOST=0.0.0.0
+const HOST = brandEnv('HOST') || '127.0.0.1';
 const PUBLIC_DIR = path.join(__dirname, 'dist');
 
 const MIME = {
@@ -489,11 +490,11 @@ const api = {
    *   - 服务端按 interval 探测一次数据版本号，只有变化才推 changed；没变化只发心跳注释
    *   - 探测能覆盖 CLI / MCP / Web 三端的写入（都落在同一个 SQLite 文件上）
    *   - changed 里带 changes 摘要（增量审计事件），前端可只刷新相关的看板
-   *   - interval：?interval=2000 或环境变量 TASKCLI_SSE_INTERVAL_MS，默认 1000ms，范围 300~10000
+   *   - interval：?interval=2000 或环境变量 T2A_SSE_INTERVAL_MS，默认 1000ms，范围 300~10000
    */
   async 'GET /api/events'(req, res) {
     const u = new URL(req.url, 'http://localhost');
-    const raw = Number(u.searchParams.get('interval')) || Number(process.env.TASKCLI_SSE_INTERVAL_MS) || 1000;
+    const raw = Number(u.searchParams.get('interval')) || Number(brandEnv('SSE_INTERVAL_MS')) || 1000;
     const intervalMs = Math.min(Math.max(raw, 300), 10000);
 
     res.writeHead(200, {
@@ -647,7 +648,9 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  process.stdout.write(`taskcli web 已启动: http://${HOST}:${PORT}\n`);
+  process.stdout.write(
+    `${require('../src/brand').PRODUCT} web 已启动: http://${HOST}:${PORT}\n`
+  );
   process.stdout.write(`数据库: ${require('../src/db').resolveDbPath()}\n`);
   process.stdout.write(`agent 联动: POST /api/tasks/next  ·  SSE /api/events\n`);
 });

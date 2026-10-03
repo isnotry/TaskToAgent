@@ -13,6 +13,15 @@
 const MIN_MAJOR = 22;
 const MIN_MINOR = 13; // 22.12 实测无 node:sqlite
 
+//品牌名只从 brand 取，避免这里写死后改名漏掉
+let PRODUCT = 'TaskToAgent';
+let ENTRY_REL = 'TaskToAgent/bin/t2a';
+try {
+  ({ PRODUCT } = require('./brand'));
+} catch {
+  /* 独立使用本模块时退回默认值 */
+}
+
 function currentVersion() {
   return `v${process.versions.node}`;
 }
@@ -29,13 +38,13 @@ function fail(stream) {
   out.write(
     [
       '',
-      '✖ taskcli 需要 Node.js >= 22.13（内置模块 node:sqlite）',
+      `✖ ${PRODUCT} 需要 Node.js >= 22.13（内置模块 node:sqlite）`,
       `  当前版本：${currentVersion()}`,
       '',
       '  修复任选其一：',
       '    1. 升级 Node 到 22.13+ / 24.x / 26.x（推荐 nvm 或 brew upgrade node）',
       '    2. 用已装的新版本直接跑：',
-      '       /opt/homebrew/bin/node /path/to/taskcli/bin/taskcli ...',
+      `       /opt/homebrew/bin/node /path/to/${ENTRY_REL} ...`,
       '',
     ].join('\n')
   );

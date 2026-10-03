@@ -1,4 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
+// 兼容入口：项目已改名为 TaskToAgent，主命令为 t2a。
+// 保留旧名 taskcli 是为了不打断老脚本 / 老 MCP 配置（内部执行同一份 src/cli.js）。
+// 新用法请直接调用 bin/t2a。
 require('../src/cli.js');

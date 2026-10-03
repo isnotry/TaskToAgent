@@ -1,28 +1,30 @@
 # 任务协作约定（在本仓库干活前请先读）
 
-本仓库的任务不走聊天记忆，统一放在本地看板 **taskcli**（SQLite，CLI / 网页 / MCP 三入口同一份数据）。
+本仓库的任务不走聊天记忆，统一放在本地看板 **TaskToAgent**（命令 `t2a`，SQLite，CLI / 网页 / MCP 三入口同一份数据）。
+
+> 2026-10-03 由 taskcli 改名而来。旧命令 `taskcli` 仍然可用，新用法一律用 `t2a`。
 
 ## 第一次上手：先跑这一条
 
 ```bash
-node /Users/kingsir/Documents/AI/projects/taskcli/bin/taskcli agent
+node /Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a agent
 ```
 
 它会打印最小循环、要点、退出码、MCP 配置。**开始前先执行它**，不要凭猜的命令操作。
 
-命令跑不起来（尤其是 `No such built-in module: node:sqlite`）时，先跑 `node /Users/kingsir/Documents/AI/projects/taskcli/bin/taskcli doctor`：它一次报清 Node 版本（需 >= 22.13）、数据库路径与完整性、网页服务是否在跑、前端产物是否齐全。本机可用 Node：`/Users/kingsir/.workbuddy/binaries/node/versions/22.22.2-5/bin/node`。
+命令跑不起来（尤其是 `No such built-in module: node:sqlite`）时，先跑 `node /Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a doctor`：它一次报清 Node 版本（需 >= 22.13）、数据库路径与完整性、网页服务是否在跑、前端产物是否齐全。本机可用 Node：`/Users/kingsir/.workbuddy/binaries/node/versions/22.22.2-5/bin/node`。
 
 ## 四条最重要的规矩
 
-0. **身份不用填**：认领人由服务端配置决定（`taskcli config set agent workbuddy`、`taskcli config alias codebuddy workbuddy`），填错也会被自动纠正。
+0. **身份不用填**：认领人由服务端配置决定（`t2a config set agent workbuddy`、`t2a config alias codebuddy workbuddy`），填错也会被自动纠正。
 1. **先把任务做完，做完再问。** 执行中途不要停下来询问：拿不准的点按最佳判断做，用 `task log` 记一笔；收尾时统一写进 `task done --result` 的「待确认：…」，人一次性答复。
 2. **过程 ≠ 任务**：过程写 `task log <id> "..."`，结论写 `task done <id> --result "..."`。不要把执行过程拆成一堆待办任务。
-3. **交付要落地**：干完跑 `taskcli report --project <看板> --out ~/Desktop`，导出一份 Markdown（产出 + 执行日志 + 依赖）给人看。
+3. **交付要落地**：干完跑 `t2a report --project <看板> --out ~/Desktop`，导出一份 Markdown（产出 + 执行日志 + 依赖）给人看。
 
 ## 标准循环（背下这四条即可）
 
 ```bash
-CLI="node /Users/kingsir/Documents/AI/projects/taskcli/bin/taskcli"
+CLI="node /Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a"
 
 $CLI project list --json                                  # 1. 看有哪些看板
 $CLI task next --project <看板> --agent <你的名字> --json  # 2. 取任务（自动移到「进行中」并锁给你）
@@ -43,7 +45,7 @@ $CLI task done <id> --result "产出说明"                    # 4. 完成；失
 支持 MCP 的 agent 直接配 MCP，不用拼命令：
 
 ```bash
-node /Users/kingsir/Documents/AI/projects/taskcli/bin/taskcli mcp --print-config
+node /Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a mcp --print-config
 ```
 
 完整约定见 [AGENT.md](./AGENT.md)，人类文档见 [README.md](./README.md)。

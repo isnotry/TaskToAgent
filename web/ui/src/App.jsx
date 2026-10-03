@@ -78,14 +78,39 @@ const BASE = '';
 // 布局偏好（左侧栏收起 + 各面板折叠）统一存在这一个 key 下：
 // { v: 版本号, sider: boolean | null, cols: { [projectId]: { [status]: boolean } } }
 // null / undefined 均表示"用户没手动设置过"，按默认规则推导。
-const LAYOUT_KEY = 'taskcli-ui-layout';
+const LAYOUT_KEY = 't2a-ui-layout';
+// 2026-10-03 由 taskcli 改名为 TaskToAgent：旧 key 仍读一次，迁移到新 key 后删旧，
+// 这样老用户的主题/布局偏好不会因为改名而丢失。
+const LEGACY_KEYS = ['taskcli-ui-layout', 'taskcli-ui-view', 'taskcli-theme'];
+function readPref(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+// 依次查新 key -> 旧 key（命中旧 key 时顺手搬到新 key）
+function readPrefMigrated(key) {
+  let v = readPref(key);
+  if (v !== null) return v;
+  for (const lk of LEGACY_KEYS) {
+    const old = readPref(lk);
+    if (old !== null) {
+      try {
+        localStorage.setItem(key, old);
+      } catch {}
+      return old;
+    }
+  }
+  return null;
+}
 // 布局结构或默认行为发生变更时 +1：旧记录版本不匹配会被整体丢弃，
 // 避免历史遗留的偏好（比如"侧栏收起"）在新默认下继续生效。
 const LAYOUT_VERSION = 2;
 const EMPTY_LAYOUT = { sider: null, cols: {} };
 function readLayout() {
   try {
-    const raw = localStorage.getItem(LAYOUT_KEY);
+    const raw = readPrefMigrated(LAYOUT_KEY);
     if (!raw) return { ...EMPTY_LAYOUT };
     const v = JSON.parse(raw);
     if (!v || typeof v !== 'object') return { ...EMPTY_LAYOUT };
@@ -629,7 +654,7 @@ export default function App() {
   // 深色模式：优先读 localStorage，否则跟随系统偏好；切换时同步 body 类并持久化
   const [isDark, setIsDark] = useState(() => {
     try {
-      const saved = localStorage.getItem('taskcli-theme');
+      const saved = readPrefMigrated('t2a-theme');
       if (saved) return saved === 'dark';
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
     } catch {
@@ -644,17 +669,17 @@ export default function App() {
     document.body.setAttribute('arco-theme', theme);
     document.documentElement.setAttribute('arco-theme', theme);
     try {
-      localStorage.setItem('taskcli-theme', theme);
+      localStorage.setItem('t2a-theme', theme);
     } catch {}
   }, [isDark]);
 
   /* ------------------- 任务列表展现形式（竖版看板 / 横版分组） ------------------- */
   // 'board' 竖版：状态列并排，看板视角，适合宽屏
   // 'list'  横版：按状态分组，组内任务竖排成列表，整行可点，适合手机
-  const LAYOUT_VIEW_KEY = 'taskcli-ui-view';
+  const LAYOUT_VIEW_KEY = 't2a-ui-view';
   const [viewMode, setViewMode] = useState(() => {
     try {
-      const saved = localStorage.getItem(LAYOUT_VIEW_KEY);
+      const saved = readPrefMigrated(LAYOUT_VIEW_KEY);
       if (saved === 'board' || saved === 'list') return saved;
       // 没手动设过：手机默认横版（竖列看板在窄屏几乎没法用），其余按竖版
       return typeof window !== 'undefined' && window.innerWidth < 900 ? 'list' : 'board';

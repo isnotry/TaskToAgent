@@ -18,6 +18,10 @@ const {
   normalizeAgent,
   defaultAgent,
 } = require('./config');
+// 品牌与路径（T2A_* 优先、TASKCLI_* 兼容；数据目录沿用旧库）
+const brand = require('./brand');
+const brandEnv = brand.env;
+const PRODUCT = brand.PRODUCT;
 
 // node:sqlite 在 Node 22 仍是实验特性，会在 stderr 打印 ExperimentalWarning。
 // 该警告不影响 stdout 的 JSON 解析，这里移除默认打印器并自行过滤，保持 agent 输出干净。
@@ -135,7 +139,7 @@ function fail(msg, code = 'ERROR', exit = EXIT.ERROR, hint) {
 
 /** 「没有任务」的统一提示，任何入口复用，保证引导口径一致 */
 const HINT_NO_TASK =
-  '没有可认领的任务。可以：① taskcli project list 换一个看板；② taskcli task add "<标题>" --project <看板> 新建；③ taskcli task ready 看是否有依赖未完成或被他人认领的项。';
+  '没有可认领的任务。可以：① t2a project list 换一个看板；② t2a task add "<标题>" --project <看板> 新建；③ t2a task ready 看是否有依赖未完成或被他人认领的项。';
 
 /** 用法/参数错误：退出码 4 */
 function usageError(msg) {
@@ -204,8 +208,8 @@ function getActiveProject(options) {
     if (!p) fail(`项目不存在: ${options.project}`);
     return p;
   }
-  if (process.env.TASKCLI_PROJECT) {
-    const p = resolveProject(process.env.TASKCLI_PROJECT);
+  if (brandEnv('PROJECT')) {
+    const p = resolveProject(brandEnv('PROJECT'));
     if (p) return p;
   }
   const def = db.prepare("SELECT value FROM meta WHERE key = 'default_project'").get();
@@ -215,8 +219,8 @@ function getActiveProject(options) {
   }
   const all = db.prepare('SELECT * FROM projects ORDER BY id').all();
   if (all.length === 1) return all[0];
-  if (all.length === 0) fail('还没有任何项目，请先用 `taskcli project add <名称>` 创建');
-  fail('存在多个项目，请通过 --project <名称> 指定，或用 `taskcli project` 设置默认');
+  if (all.length === 0) fail('还没有任何项目，请先用 `t2a project add <名称>` 创建');
+  fail('存在多个项目，请通过 --project <名称> 指定，或用 `t2a project` 设置默认');
 }
 
 function setDefaultProject(id) {
@@ -245,7 +249,7 @@ function handleProject(action, args, options, json) {
     }
     case 'add':
     case 'new': {
-      if (!ref) usageError('用法: taskcli project add <名称> [--desc <描述>]');
+      if (!ref) usageError('用法: t2a project add <名称> [--desc <描述>]');
       const exists = db.prepare('SELECT id FROM projects WHERE name = ?').get(ref);
       if (exists) fail(`项目已存在: ${ref}`);
       const t = now();
@@ -264,7 +268,7 @@ function handleProject(action, args, options, json) {
     }
     case 'rename': {
       const newName = args[1];
-      if (!ref || !newName) usageError('用法: taskcli project rename <id|名称> <新名称>');
+      if (!ref || !newName) usageError('用法: t2a project rename <id|名称> <新名称>');
       const p = resolveProject(ref) || fail(`项目不存在: ${ref}`);
       db.prepare('UPDATE projects SET name = ?, updated_at = ? WHERE id = ?').run(newName, now(), p.id);
       return out(json, { id: p.id, name: newName }, `项目 #${p.id} 已重命名为 "${newName}"`);
@@ -272,7 +276,7 @@ function handleProject(action, args, options, json) {
     case 'remove':
     case 'rm':
     case 'delete': {
-      if (!ref) usageError('用法: taskcli project remove <id|名称> [--yes]');
+      if (!ref) usageError('用法: t2a project remove <id|名称> [--yes]');
       const p = resolveProject(ref) || fail(`项目不存在: ${ref}`);
       const cnt = db.prepare('SELECT COUNT(*) c FROM tasks WHERE project_id = ?').get(p.id).c;
       if (!options.yes) {
@@ -299,7 +303,7 @@ function handleProject(action, args, options, json) {
 // 最近一次身份是否被别名纠正过（用于在认领类命令里提示）
 let lastAgentNote = '';
 
-/** 当前 agent 身份：--agent > 环境变量 TASKCLI_AGENT > 配置 agent > 'agent'，最后过一遍别名纠正 */
+/** 当前 agent 身份：--agent > 环境变量 T2A_AGENT > 配置 agent > 'agent'，最后过一遍别名纠正 */
 function currentAgent(options) {
   const o = options || {};
   let a;
@@ -307,7 +311,7 @@ function currentAgent(options) {
   else a = defaultAgent();
   const n = normalizeAgent(a);
   if (n.corrected) {
-    lastAgentNote = `身份 "${n.from}" 已按配置纠正为 "${n.name}"（改配置：taskcli config alias <错名> <正名>）。`;
+    lastAgentNote = `身份 "${n.from}" 已按配置纠正为 "${n.name}"（改配置：t2a config alias <错名> <正名>）。`;
   }
   return n.name;
 }
@@ -351,7 +355,7 @@ function fmtLease(ms) {
 
 function readStdin() {
   if (process.stdin.isTTY)
-    usageError('批量模式需要从管道读取 JSON，例如: echo \'[{"title":".."}]\' | taskcli task add --project X --batch');
+    usageError('批量模式需要从管道读取 JSON，例如: echo \'[{"title":".."}]\' | t2a task add --project X --batch');
   return fs.readFileSync(0, 'utf8');
 }
 
@@ -437,7 +441,7 @@ function handleTask(action, args, options, json) {
         // 防呆：一次塞很多条，很可能是把「执行过程」当成了任务
         const batchHint =
           ids.length >= 3
-            ? '一次建了多条任务。若这些只是执行过程/心得而非真正的待办，请用 task log <id> 记过程、task done --result 写产出；完成后用 taskcli report --out 导出一份报告交付。'
+            ? '一次建了多条任务。若这些只是执行过程/心得而非真正的待办，请用 task log <id> 记过程、task done --result 写产出；完成后用 t2a report --out 导出一份报告交付。'
             : undefined;
         return out(
           json,
@@ -448,7 +452,7 @@ function handleTask(action, args, options, json) {
         );
       }
       const title = args[0];
-      if (!title) usageError('用法: taskcli task add <标题> --project <名称> [--content <内容>] [--status idea|todo|doing|done|archive] [--priority low|normal|high] [--key <幂等键>]');
+      if (!title) usageError('用法: t2a task add <标题> --project <名称> [--content <内容>] [--status idea|todo|doing|done|archive] [--priority low|normal|high] [--key <幂等键>]');
       const p = getActiveProject(options);
       // 幂等键：agent 重试时不会重复插入，命中已存在的任务则原样返回
       const extKey = options.key !== undefined && options.key !== true ? String(options.key) : '';
@@ -486,7 +490,7 @@ function handleTask(action, args, options, json) {
     case 'edit':
     case 'set': {
       const id = Number(args[0]);
-      if (!Number.isInteger(id)) usageError('用法: taskcli task update <id> [--title] [--content] [--status] [--priority] [--project]');
+      if (!Number.isInteger(id)) usageError('用法: t2a task update <id> [--title] [--content] [--status] [--priority] [--project]');
       const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) || fail(`记录不存在: ${id}`);
       const fields = {};
       if (options.title !== undefined) fields.title = options.title;
@@ -543,7 +547,7 @@ function handleTask(action, args, options, json) {
     case 'rm':
     case 'delete': {
       const id = Number(args[0]);
-      if (!Number.isInteger(id)) usageError('用法: taskcli task remove <id> [--yes]');
+      if (!Number.isInteger(id)) usageError('用法: t2a task remove <id> [--yes]');
       const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) || fail(`记录不存在: ${id}`);
       if (!options.yes) confirmError(`将删除记录 #${id} "${row.title}"。请追加 --yes 确认删除。`);
       db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
@@ -558,7 +562,7 @@ function handleTask(action, args, options, json) {
     case 'show':
     case 'get': {
       const id = Number(args[0]);
-      if (!Number.isInteger(id)) usageError('用法: taskcli task show <id>');
+      if (!Number.isInteger(id)) usageError('用法: t2a task show <id>');
       const row = db
         .prepare(
           'SELECT t.*, p.name AS project_name FROM tasks t JOIN projects p ON p.id = t.project_id WHERE t.id = ?'
@@ -583,7 +587,7 @@ function handleTask(action, args, options, json) {
     case 'find': {
       const q = args[0] || options.q || '';
       if (!q || !String(q).trim()) {
-        usageError('用法: taskcli task search <关键词>  (支持空格分隔的多关键词，模糊匹配 编号/标题/内容/项目)');
+        usageError('用法: t2a task search <关键词>  (支持空格分隔的多关键词，模糊匹配 编号/标题/内容/项目)');
       }
       const tokens = String(q).toLowerCase().split(/\s+/).filter(Boolean);
       const cond = tokens
@@ -652,7 +656,7 @@ function handleTask(action, args, options, json) {
     case 'claim':
     case 'take': {
       const id = Number(args[0]);
-      if (!Number.isInteger(id)) usageError('用法: taskcli task start|claim <id> --agent <名称> [--lease 30m]');
+      if (!Number.isInteger(id)) usageError('用法: t2a task start|claim <id> --agent <名称> [--lease 30m]');
       const agent = currentAgent(options);
       const lease = parseDuration(options.lease);
       const res = claimTask(id, agent, lease);
@@ -671,7 +675,7 @@ function handleTask(action, args, options, json) {
     case 'heartbeat':
     case 'hb': {
       const id = Number(args[0]);
-      if (!Number.isInteger(id)) usageError('用法: taskcli task heartbeat <id> --agent <名称> [--lease 30m]');
+      if (!Number.isInteger(id)) usageError('用法: t2a task heartbeat <id> --agent <名称> [--lease 30m]');
       const row = requireTask(id);
       const agent = currentAgent(options);
       const lease = parseDuration(options.lease);
@@ -697,7 +701,7 @@ function handleTask(action, args, options, json) {
         const to = options.to || options.agent;
         if (!from || !to)
           usageError(
-            '用法: taskcli task assign <id> --agent <名称> [--force]   |   taskcli task assign --from <错名> --to <正名>'
+            '用法: t2a task assign <id> --agent <名称> [--force]   |   t2a task assign --from <错名> --to <正名>'
           );
         const ts = now();
         const info = db
@@ -708,11 +712,11 @@ function handleTask(action, args, options, json) {
           json,
           { from, to, updated: info.changes },
           `已将 ${info.changes} 条任务从 "${from}" 转派为 "${to}"`,
-          '建议再用 taskcli config alias <错名> <正名>，以后填错会自动纠正。'
+          '建议再用 t2a config alias <错名> <正名>，以后填错会自动纠正。'
         );
       }
       const id = Number(args[0]);
-      if (!Number.isInteger(id)) usageError('用法: taskcli task assign <id> --agent <名称> [--force]');
+      if (!Number.isInteger(id)) usageError('用法: t2a task assign <id> --agent <名称> [--force]');
       const row = requireTask(id);
       const agent = currentAgent(options);
       if (row.assignee && row.assignee !== agent && !options.force) {
@@ -742,7 +746,7 @@ function handleTask(action, args, options, json) {
     case 'release':
     case 'drop': {
       const id = Number(args[0]);
-      if (!Number.isInteger(id)) usageError('用法: taskcli task release <id> [--agent <名称>]');
+      if (!Number.isInteger(id)) usageError('用法: t2a task release <id> [--agent <名称>]');
       const row = requireTask(id);
       checkOwner(row, options);
       const ts = now();
@@ -758,7 +762,7 @@ function handleTask(action, args, options, json) {
     case 'done':
     case 'finish': {
       const id = Number(args[0]);
-      if (!Number.isInteger(id)) usageError('用法: taskcli task done <id> [--result "产出说明"] [--agent <名称>]');
+      if (!Number.isInteger(id)) usageError('用法: t2a task done <id> [--result "产出说明"] [--agent <名称>]');
       const row = requireTask(id);
       checkOwner(row, options);
       const agent = currentAgent(options);
@@ -781,7 +785,7 @@ function handleTask(action, args, options, json) {
     case 'fail': {
       const id = Number(args[0]);
       if (!Number.isInteger(id))
-        usageError('用法: taskcli task fail <id> [--error "原因"] [--max 3] [--no-retry] [--agent <名称>]');
+        usageError('用法: t2a task fail <id> [--error "原因"] [--max 3] [--no-retry] [--agent <名称>]');
       const row = requireTask(id);
       checkOwner(row, options);
       const agent = currentAgent(options);
@@ -817,7 +821,7 @@ function handleTask(action, args, options, json) {
 
     case 'log': {
       const id = Number(args[0]);
-      if (!Number.isInteger(id)) usageError('用法: taskcli task log <id> <内容>   或 --content="多行内容"');
+      if (!Number.isInteger(id)) usageError('用法: t2a task log <id> <内容>   或 --content="多行内容"');
       requireTask(id);
       const content =
         options.content !== undefined && options.content !== true
@@ -833,7 +837,7 @@ function handleTask(action, args, options, json) {
     case 'logs':
     case 'tracks': {
       const id = Number(args[0]);
-      if (!Number.isInteger(id)) usageError('用法: taskcli task logs <id>');
+      if (!Number.isInteger(id)) usageError('用法: t2a task logs <id>');
       requireTask(id);
       const rows = db.prepare('SELECT * FROM task_tracks WHERE task_id = ? ORDER BY id').all(id);
       if (json) return out(json, rows);
@@ -850,7 +854,7 @@ function handleTask(action, args, options, json) {
       const sub = String(args[0] || 'list').toLowerCase();
       const id = Number(args[1]);
       if (!Number.isInteger(id))
-        usageError('用法: taskcli task dep add <id> --on <依赖id> | task dep rm <id> --on <依赖id> | task dep list <id>');
+        usageError('用法: t2a task dep add <id> --on <依赖id> | task dep rm <id> --on <依赖id> | task dep list <id>');
       requireTask(id);
       if (sub === 'add' || sub === 'link') {
         const depId = Number(options.on);
@@ -967,7 +971,7 @@ function handleDb(action, args, options, json) {
       .toISOString()
       .replace(/[:T]/g, '-')
       .replace(/\..+/, '');
-    const file = options.name && options.name !== true ? String(options.name) : `taskcli-${stamp}.db`;
+    const file = options.name && options.name !== true ? String(options.name) : `t2a-${stamp}.db`;
     const dir = options.out && options.out !== true ? String(options.out) : path.dirname(src);
     fs.mkdirSync(dir, { recursive: true });
     const dest = path.join(dir, file);
@@ -976,7 +980,7 @@ function handleDb(action, args, options, json) {
     logEvent('db.backup', { actor: currentAgent(options), detail: dest });
     return out(json, { path: dest, size }, `已备份到 ${dest}（${(size / 1024).toFixed(1)} KB）`);
   }
-  usageError('用法: taskcli db backup [--out <目录>] [--name <文件名>]  |  taskcli db path');
+  usageError('用法: t2a db backup [--out <目录>] [--name <文件名>]  |  t2a db path');
 }
 
 /**
@@ -1002,12 +1006,15 @@ function handleReport(action, args, options, json) {
   }
 
   if (options.out !== undefined) {
-    const raw = options.out === true ? path.join(os.homedir(), '.taskcli', 'reports') : String(options.out);
+    const raw =
+      options.out === true
+        ? path.join(require('./brand').resolveHomeDir(), 'reports')
+        : String(options.out);
     const stamp = new Date()
       .toISOString()
       .replace(/[:T]/g, '-')
       .replace(/\..+/, '');
-    const dest = path.extname(raw) ? raw : path.join(raw, `taskcli-${subject}-${stamp}.md`);
+    const dest = path.extname(raw) ? raw : path.join(raw, `t2a-${subject}-${stamp}.md`);
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.writeFileSync(dest, md);
     logEvent('report.export', { actor: currentAgent(options), detail: dest });
@@ -1094,7 +1101,7 @@ function handleDoctor(options, json) {
   add('数据可读', dataOk, dataDetail);
 
   // 4. 网页服务端口（装了但没启动不算错，只提示）。同步探测，避免输出竞态。
-  const port = Number(process.env.TASKCLI_PORT || 3979);
+  const port = Number(brandEnv('PORT') || 3979);
   const url = `http://127.0.0.1:${port}`;
   add(
     '网页服务',
@@ -1113,7 +1120,7 @@ function handleDoctor(options, json) {
   const payload = { ok: failed.length === 0, node: process.execPath, db: dbPath, checks };
   if (json) return out(json, payload, JSON.stringify(payload, null, 2));
 
-  const lines = [`taskcli doctor   Node=${sqliteGuard.currentVersion()}  DB=${dbPath}`, ''];
+  const lines = [`t2a doctor   Node=${sqliteGuard.currentVersion()}  DB=${dbPath}`, ''];
   for (const c of checks) {
     lines.push(`${c.ok ? '✔' : '✖'} ${padDisp(c.name, 12)}${c.detail}`);
     if (c.hint) lines.push(`  → ${c.hint}`);
@@ -1132,7 +1139,7 @@ function handleConfig(action, args, options, json) {
     const key = args[0];
     const val = args[1];
     if (key !== 'agent' || val === undefined)
-      usageError('用法: taskcli config set agent <名称>   例: taskcli config set agent workbuddy');
+      usageError('用法: t2a config set agent <名称>   例: t2a config set agent workbuddy');
     const cfg = saveConfig({ agent: String(val) });
     return out(json, cfg, `默认 agent 身份已设为 "${val}"`);
   }
@@ -1141,7 +1148,7 @@ function handleConfig(action, args, options, json) {
     const from = args[0];
     const to = args[1];
     if (!from || !to)
-      usageError('用法: taskcli config alias <错名> <正名>   例: taskcli config alias codebuddy workbuddy');
+      usageError('用法: t2a config alias <错名> <正名>   例: t2a config alias codebuddy workbuddy');
     const cfg = loadConfig();
     const aliases = { ...(cfg.agentAliases || {}), [String(from)]: String(to) };
     const next = saveConfig({ agentAliases: aliases });
@@ -1165,15 +1172,15 @@ function handleConfig(action, args, options, json) {
 function printMcpConfig(options) {
   const o = options || {};
   const agent =
-    (o.agent && o.agent !== true && String(o.agent)) || process.env.TASKCLI_AGENT || defaultAgent();
+    (o.agent && o.agent !== true && String(o.agent)) || brandEnv('AGENT') || defaultAgent();
   process.stdout.write(
     JSON.stringify(
       {
         mcpServers: {
-          taskcli: {
+          t2a: {
             command: process.execPath,
             args: [ENTRY, 'mcp'],
-            env: { TASKCLI_AGENT: agent },
+            env: { T2A_AGENT: agent },
           },
         },
       },
@@ -1185,90 +1192,90 @@ function printMcpConfig(options) {
 
 function printHelp() {
   const text = `
-taskcli —— 本地任务看板 CLI（SQLite 存储，agent 友好）
+${PRODUCT}（命令 t2a，旧名 taskcli 仍可用）—— ${brand.TAGLINE}
 
 环境要求:
   Node.js >= 22.13（内置模块 node:sqlite；22.12 实测没有）
-  跑不起来先执行: taskcli doctor
+  跑不起来先执行: t2a doctor
 
 存储:
-  DB 默认位于 ~/.taskcli/taskcli.db，可用环境变量 TASKCLI_DB 覆盖。
-  指定看板可用环境变量 TASKCLI_PROJECT 或每条命令的 --project <名称>。
+  DB 默认位于 ~/.t2a/t2a.db，可用环境变量 T2A_DB 覆盖。
+  指定看板可用环境变量 T2A_PROJECT 或每条命令的 --project <名称>。
 
 项目 (project) —— 用来区分不同的看板:
-  taskcli project list
-  taskcli project add <名称> [--desc <描述>]
-  taskcli project rename <id|名称> <新名称>
-  taskcli project remove <id|名称> --yes
+  t2a project list
+  t2a project add <名称> [--desc <描述>]
+  t2a project rename <id|名称> <新名称>
+  t2a project remove <id|名称> --yes
 
 任务 (task) —— 看板内的记录（标题/内容/状态/优先级）:
-  taskcli task list [--project <名称>] [--status idea|todo|doing|done|archive]
-  taskcli task add <标题> --project <名称> [--content <内容>] [--status <s>] [--priority low|normal|high] [--key <幂等键>]
-  taskcli task add --project <名称> --batch     # 从 stdin 读取 JSON 数组批量插入
-  taskcli task update <id> [--title] [--content] [--status] [--priority] [--project]
-  taskcli task remove <id> --yes
-  taskcli task show <id>
-  taskcli task search <关键词>        # 模糊搜索（编号/标题/内容/项目）
+  t2a task list [--project <名称>] [--status idea|todo|doing|done|archive]
+  t2a task add <标题> --project <名称> [--content <内容>] [--status <s>] [--priority low|normal|high] [--key <幂等键>]
+  t2a task add --project <名称> --batch     # 从 stdin 读取 JSON 数组批量插入
+  t2a task update <id> [--title] [--content] [--status] [--priority] [--project]
+  t2a task remove <id> --yes
+  t2a task show <id>
+  t2a task search <关键词>        # 模糊搜索（编号/标题/内容/项目）
 
 agent 联动 —— 认领 / 租约 / 结果 / 日志 / 依赖:
-  taskcli task next    [--project P] [--agent A] [--lease 30m] [--status todo]   # 取下一个可做任务并原子认领
-  taskcli task claim   <id> [--agent A] [--lease 30m]        # 认领指定任务（并发安全）
-  taskcli task heartbeat <id> [--agent A] [--lease 30m]      # 长任务续租
-  taskcli task release <id> [--agent A]                      # 放弃任务，回到待办
-  taskcli task done    <id> [--result "产出"] [--agent A]     # 完成并留产出
-  taskcli task fail    <id> [--error "原因"] [--max 3]        # 失败计数，未达上限回待办重试
-  taskcli task log     <id> <内容>                            # 写执行日志
-  taskcli task logs    <id>                                   # 看执行日志
-  taskcli task dep add <id> --on <依赖id>                     # 设依赖（B 等 A 完成）
-  taskcli task dep list|rm <id> [--on <依赖id>]
-  taskcli task ready   [--project P]                          # 列出可开工任务（只观察，不认领）
+  t2a task next    [--project P] [--agent A] [--lease 30m] [--status todo]   # 取下一个可做任务并原子认领
+  t2a task claim   <id> [--agent A] [--lease 30m]        # 认领指定任务（并发安全）
+  t2a task heartbeat <id> [--agent A] [--lease 30m]      # 长任务续租
+  t2a task release <id> [--agent A]                      # 放弃任务，回到待办
+  t2a task done    <id> [--result "产出"] [--agent A]     # 完成并留产出
+  t2a task fail    <id> [--error "原因"] [--max 3]        # 失败计数，未达上限回待办重试
+  t2a task log     <id> <内容>                            # 写执行日志
+  t2a task logs    <id>                                   # 看执行日志
+  t2a task dep add <id> --on <依赖id>                     # 设依赖（B 等 A 完成）
+  t2a task dep list|rm <id> [--on <依赖id>]
+  t2a task ready   [--project P]                          # 列出可开工任务（只观察，不认领）
 
 身份配置（agent 名字总被填错时用）:
-  taskcli config                              # 查看默认身份与纠正规则
-  taskcli config set agent workbuddy           # 设默认身份（CLI / MCP 未指定时用它）
-  taskcli config alias codebuddy workbuddy     # 填错自动纠正：codebuddy → workbuddy
-  taskcli task assign --from codebuddy --to workbuddy   # 批量纠正已认领的任务
+  t2a config                              # 查看默认身份与纠正规则
+  t2a config set agent workbuddy           # 设默认身份（CLI / MCP 未指定时用它）
+  t2a config alias codebuddy workbuddy     # 填错自动纠正：codebuddy → workbuddy
+  t2a task assign --from codebuddy --to workbuddy   # 批量纠正已认领的任务
 
 入门（给 agent / 新同事）:
-  taskcli agent            # 打印完整上手指南（最小循环 + 要点 + 退出码）
-  taskcli agent --json     # 机读版，便于 agent 之间传递
-  taskcli mcp --print-config   # 输出可直接粘贴的 MCP 客户端配置
+  t2a agent            # 打印完整上手指南（最小循环 + 要点 + 退出码）
+  t2a agent --json     # 机读版，便于 agent 之间传递
+  t2a mcp --print-config   # 输出可直接粘贴的 MCP 客户端配置
 
 产物导出:
-  taskcli report [--project P] [--task <id>] [--out <文件|目录>] [--deliverables] [--no-logs]
+  t2a report [--project P] [--task <id>] [--out <文件|目录>] [--deliverables] [--no-logs]
       # 把任务 + 执行日志 + 产物 + 依赖汇总成 Markdown；--out 落盘，不带则打印
-  taskcli report --deliverables --out ~/Desktop    # 只导出已完成任务的「产出汇总」
+  t2a report --deliverables --out ~/Desktop    # 只导出已完成任务的「产出汇总」
 
 审计与维护:
-  taskcli doctor                                          # 环境自检（Node/数据库/表/网页服务/前端产物）
-  taskcli events [--kind <事件类型>] [--task <id>] [--actor <名称>] [--limit 50]   # 审计流水
-  taskcli db backup [--out <目录>] [--name <文件名>]    # 快照（先 checkpoint WAL）
-  taskcli db path                                       # 打印当前数据库文件路径
-  taskcli mcp                                           # 以 MCP server 运行（stdio JSON-RPC）
+  t2a doctor                                          # 环境自检（Node/数据库/表/网页服务/前端产物）
+  t2a events [--kind <事件类型>] [--task <id>] [--actor <名称>] [--limit 50]   # 审计流水
+  t2a db backup [--out <目录>] [--name <文件名>]    # 快照（先 checkpoint WAL）
+  t2a db path                                       # 打印当前数据库文件路径
+  t2a mcp                                           # 以 MCP server 运行（stdio JSON-RPC）
 
 agent 友好:
   - 所有命令支持 --json，输出统一为 {"ok":true,"data":...} / {"ok":false,"error":{"code":..,"message":..}}
   - 退出码: 0 成功 / 1 业务错误 / 2 无可执行任务 / 3 认领冲突 / 4 用法错误 / 5 需要 --yes
-  - 身份: --agent <名称> 或环境变量 TASKCLI_AGENT
+  - 身份: --agent <名称> 或环境变量 T2A_AGENT
   - 破坏性操作（remove）必须显式 --yes，无 TTY 阻塞
-  - 批量添加: echo '[{"title":"A","content":".."},{"title":"B"}]' | taskcli task add --project X --batch
+  - 批量添加: echo '[{"title":"A","content":".."},{"title":"B"}]' | t2a task add --project X --batch
 `;
   process.stdout.write(text + '\n');
 }
 
 function printProjectHelp() {
   const text = `
-taskcli project —— 项目（看板）管理
+t2a project —— 项目（看板）管理
 
-  taskcli project list                                  列出所有看板（含任务数）
-  taskcli project add <名称> [--desc <描述>]            新建看板
-  taskcli project rename <id|名称> <新名称>            改名
-  taskcli project remove <id|名称> --yes               删除看板（连带删除其下任务）
+  t2a project list                                  列出所有看板（含任务数）
+  t2a project add <名称> [--desc <描述>]            新建看板
+  t2a project rename <id|名称> <新名称>            改名
+  t2a project remove <id|名称> --yes               删除看板（连带删除其下任务）
 
 提示:
   - 可用 id 或名称引用项目，按名称精确匹配
   - 第一个创建的项目自动设为默认，之后免 --project
-  - 用环境变量 TASKCLI_PROJECT 指定默认看板
+  - 用环境变量 T2A_PROJECT 指定默认看板
   - 所有命令支持 --json 输出
 `;
   process.stdout.write(text + '\n');
@@ -1276,27 +1283,27 @@ taskcli project —— 项目（看板）管理
 
 function printTaskHelp() {
   const text = `
-taskcli task —— 看板内记录（标题/内容/状态/优先级）
+t2a task —— 看板内记录（标题/内容/状态/优先级）
 
-  taskcli task list [--project <名称>] [--status idea|todo|doing|done|archive]
-  taskcli task add <标题> --project <名称> [--content <内容>] [--status <s>] [--priority low|normal|high]
-  taskcli task add --project <名称> --batch      # 从 stdin 读 JSON 数组批量插入多条
-  taskcli task update <id> [--title] [--content] [--status] [--priority] [--project]
-  taskcli task remove <id> --yes
-  taskcli task show <id>
-  taskcli task search <关键词>        # 模糊搜索（编号/标题/内容/项目）
+  t2a task list [--project <名称>] [--status idea|todo|doing|done|archive]
+  t2a task add <标题> --project <名称> [--content <内容>] [--status <s>] [--priority low|normal|high]
+  t2a task add --project <名称> --batch      # 从 stdin 读 JSON 数组批量插入多条
+  t2a task update <id> [--title] [--content] [--status] [--priority] [--project]
+  t2a task remove <id> --yes
+  t2a task show <id>
+  t2a task search <关键词>        # 模糊搜索（编号/标题/内容/项目）
 
 agent 联动:
-  taskcli task next       [--project P] [--agent A] [--lease 30m] [--status todo]
-  taskcli task start      <id> [--agent A] [--lease 30m]   # 「开始做这条」= 认领 + 置为进行中
-  taskcli task claim      <id> [--agent A] [--lease 30m]   # start 的同义写法
-  taskcli task heartbeat  <id> [--agent A] [--lease 30m]
-  taskcli task release    <id> [--agent A]
-  taskcli task done       <id> [--result "产出"] [--agent A]
-  taskcli task fail       <id> [--error "原因"] [--max 3] [--no-retry]
-  taskcli task log        <id> <内容>        /  taskcli task logs <id>
-  taskcli task dep add    <id> --on <依赖id> /  dep list|rm <id> [--on <依赖id>]
-  taskcli task ready      [--project P]
+  t2a task next       [--project P] [--agent A] [--lease 30m] [--status todo]
+  t2a task start      <id> [--agent A] [--lease 30m]   # 「开始做这条」= 认领 + 置为进行中
+  t2a task claim      <id> [--agent A] [--lease 30m]   # start 的同义写法
+  t2a task heartbeat  <id> [--agent A] [--lease 30m]
+  t2a task release    <id> [--agent A]
+  t2a task done       <id> [--result "产出"] [--agent A]
+  t2a task fail       <id> [--error "原因"] [--max 3] [--no-retry]
+  t2a task log        <id> <内容>        /  t2a task logs <id>
+  t2a task dep add    <id> --on <依赖id> /  dep list|rm <id> [--on <依赖id>]
+  t2a task ready      [--project P]
 
 状态 (status):    idea(灵感区) | todo(待办) | doing(进行中) | blocked(阻塞) | review(待验收) | done(已完成) | archive(存档)
 优先级 (priority): low(低) | normal(普通) | high(高)
@@ -1305,10 +1312,10 @@ agent 联动:
 退出码:  0 成功 | 1 业务错误 | 2 无可执行任务 | 3 认领冲突 | 4 用法错误 | 5 需要 --yes
 
 示例:
-  echo '[{"title":"登录页","status":"doing"},{"title":"埋点"}]' | taskcli task add --project 我的看板 --batch
-  taskcli task update 3 --status done
-  taskcli task list --project 我的看板 --json
-  taskcli task next --project 我的看板 --agent codebuddy --json   # 取任务 → 干活 → done
+  echo '[{"title":"登录页","status":"doing"},{"title":"埋点"}]' | t2a task add --project 我的看板 --batch
+  t2a task update 3 --status done
+  t2a task list --project 我的看板 --json
+  t2a task next --project 我的看板 --agent codebuddy --json   # 取任务 → 干活 → done
 `;
   process.stdout.write(text + '\n');
 }

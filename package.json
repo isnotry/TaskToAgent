@@ -1,15 +1,16 @@
 {
-  "name": "taskcli",
-  "version": "1.0.0",
-  "description": "本地任务看板 CLI —— SQLite 存储，agent 友好的非交互式命令",
+  "name": "tasktoagent",
+  "version": "1.1.0",
+  "description": "TaskToAgent —— 本地任务看板：任务分发给agent 的调度中枢（SQLite 存储，agent 友好）",
   "bin": {
+    "t2a": "bin/t2a",
     "taskcli": "bin/taskcli"
   },
   "main": "src/cli.js",
   "scripts": {
-    "start": "node bin/taskcli",
+    "start": "node bin/t2a",
     "web": "node web/server.js",
-    "doctor": "node bin/taskcli doctor",
+    "doctor": "node bin/t2a doctor",
     "dev:ui": "cd web/ui && npm run dev",
     "build:ui": "cd web/ui && npm run build",
     "test": "node test/smoke.js"
@@ -17,6 +18,8 @@
   "keywords": [
     "kanban",
     "task",
+    "agent",
+    "orchestration",
     "sqlite",
     "cli",
     "local"

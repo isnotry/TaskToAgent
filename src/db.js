@@ -1,23 +1,16 @@
 'use strict';
 
-const os = require('os');
-const fs = require('fs');
-const path = require('path');
 const { loadSqlite } = require('./sqlite-guard');
+const { resolveDbPath } = require('./brand');
 const { DatabaseSync } = loadSqlite();
 
 /**
  * 本地存储方案（零外部依赖，使用 Node 内置 node:sqlite）：
- * - 默认数据库文件位于 ~/.taskcli/taskcli.db
- * - 可用环境变量 TASKCLI_DB 覆盖路径（便于多项目/多 agent 隔离）
+ * - 默认数据库文件位于 ~/.t2a/t2a.db
+ * - 可用环境变量 T2A_DB（兼容旧名 TASKCLI_DB）覆盖路径，便于多项目/多 agent 隔离
+ * - 若旧目录 ~/.taskcli 已有数据且新目录尚未建立，自动沿用旧库，避免改名丢数据
  * - 开启 WAL 日志模式与 foreign_keys 外键约束（删除项目级联删除其任务）
  */
-function resolveDbPath() {
-  if (process.env.TASKCLI_DB) return process.env.TASKCLI_DB;
-  const dir = path.join(os.homedir(), '.taskcli');
-  fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, 'taskcli.db');
-}
 
 const db = new DatabaseSync(resolveDbPath());
 db.exec('PRAGMA journal_mode = WAL');

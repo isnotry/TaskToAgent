@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>任务看板</title>
+    <title>TaskToAgent · 任务看板</title>
     <style>
       html,
       body,
@@ -25,7 +25,7 @@
         color-scheme: light;
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-DVSsO37Q.js"></script>
+    <script type="module" crossorigin src="/assets/index-B8IpcfFM.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-ejlXSaMb.css">
   </head>
   <body>
@@ -33,7 +33,8 @@
       // 在 CSS 应用前同步主题，避免首屏白闪
       // 注意：Arco 2.x 暗色靠 body[arco-theme='dark'] 属性，不是 class
       try {
-        var t = localStorage.getItem('taskcli-theme');
+        // 旧 key taskcli-theme 兼容一次（2026-10-03 改名 TaskToAgent）
+        var t = localStorage.getItem('t2a-theme') || localStorage.getItem('taskcli-theme');
         var theme =
           t === 'dark' ||
           (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)
