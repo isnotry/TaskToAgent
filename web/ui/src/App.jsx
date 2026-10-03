@@ -296,11 +296,22 @@ function ProjectSidebar({
                       cursor: 'pointer',
                       color: 'var(--color-text-3)',
                       background: open ? 'var(--color-fill-3)' : 'transparent',
+                      // 项目名换行时箭头与首行对齐
+                      marginTop: 1,
                     }}
                   >
                     {open ? <IconDown /> : <IconRight />}
                   </span>
-                  <Text bold={active} style={{ flex: 1, minWidth: 0 }} ellipsis>
+                  {/* 项目名：先完整显示，放不下才换行（侧栏空间有限，换行优于省略号看不清）*/}
+                  <Text
+                    bold={active}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      overflowWrap: 'anywhere',
+                      lineHeight: '20px',
+                    }}
+                  >
                     {p.name}
                   </Text>
                   <Space size={4}>
@@ -1101,30 +1112,38 @@ export default function App() {
             <div
               style={{
                 display: 'flex',
-                alignItems: 'center',
+                // 标题换行后仍让菜单按钮与首行对齐（center 会让多行标题错位）
+                alignItems: 'flex-start',
                 gap: 12,
                 flex: 1,
+                // 允许收缩到内容宽度以下，标题才能换行而不是把右侧图标挤走
                 minWidth: 0,
               }}
             >
               <Tooltip content={isNarrow || !siderOpen ? '显示项目列表' : '收起项目列表'}>
                 <Button
                   type="text"
+                  style={{ marginTop: 2 }}
                   icon={!isNarrow && siderOpen ? <IconMenuFold /> : <IconMenu />}
                   onClick={openMenu}
                 />
               </Tooltip>
-              <div style={{ minWidth: 0 }}>
-                <Title heading={5} style={{ margin: 0 }} ellipsis>
+              <div style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+                {/* 标题优先完整显示：不加 ellipsis，让它自然换行；
+                    只有容器真放不下时才靠 flex 收缩 + overflow 兜底。*/}
+                <Title heading={5} style={{ margin: 0, lineHeight: '22px' }}>
                   {selected ? selected.name : '未选择项目'}
                 </Title>
                 {selected && selected.description && (
-                  <Text type="secondary" style={{ fontSize: 12 }}>
+                  <Text
+                    type="secondary"
+                    style={{ fontSize: 12, display: 'block', lineHeight: '18px' }}
+                  >
                     {selected.description}
                   </Text>
                 )}
               </div>
-          </div>
+            </div>
             {/* 顶栏右侧收成一排图标：搜索 / 新建 / 同步状态 / 设置。
             搜索点开才展开输入框，避免常驻输入框把标题挤窄（窄屏尤其明显）。*/}
             <Space size={4} style={{ flexShrink: 0 }}>
@@ -1574,24 +1593,29 @@ export default function App() {
                                 <div
                                   style={{
                                     display: 'flex',
-                                    alignItems: 'center',
+                                    // 标题折行时箭头与首行对齐
+                                    alignItems: 'flex-start',
                                     gap: 8,
                                     width: '100%',
                                     minWidth: 0,
                                   }}
                                 >
-                                  <span style={{ flexShrink: 0 }}>
+                                  <span style={{ flexShrink: 0, marginTop: 2 }}>
                                     {expandedId === t.id ? <IconUp /> : <IconDown />}
                                   </span>
-                                  {/* 标题独占整行：单行显示，过长以省略号收尾 */}
+                                  {/* 任务标题：先完整显示，卡片放不下时最多折两行，
+                                      两行仍装不下才省略（比单行省略更易读）*/}
                                   <span
                                     title={t.title}
                                     style={{
                                       flex: 1,
                                       minWidth: 0,
+                                      overflowWrap: 'anywhere',
+                                      display: '-webkit-box',
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: 'vertical',
                                       overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      whiteSpace: 'nowrap',
+                                      lineHeight: '20px',
                                     }}
                                   >
                                     {t.title}
