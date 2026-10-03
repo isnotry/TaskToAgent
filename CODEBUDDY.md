@@ -7,12 +7,12 @@
 ## 第一次上手：先跑这一条
 
 ```bash
-node /Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a agent
+node ./bin/t2a agent
 ```
 
 它会打印最小循环、要点、退出码、MCP 配置。**开始前先执行它**，不要凭猜的命令操作。
 
-命令跑不起来（尤其是 `No such built-in module: node:sqlite`）时，先跑 `node /Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a doctor`：它一次报清 Node 版本（需 >= 22.13）、数据库路径与完整性、网页服务是否在跑、前端产物是否齐全。本机可用 Node：`/Users/kingsir/.workbuddy/binaries/node/versions/22.22.2-5/bin/node`。
+命令跑不起来（尤其是 `No such built-in module: node:sqlite`）时，先跑 `node ./bin/t2a doctor`：它一次报清 Node 版本（需 >= 22.13）、数据库路径与完整性、网页服务是否在跑、前端产物是否齐全。本机可用 Node：`node`。
 
 ## 四条最重要的规矩
 
@@ -24,7 +24,7 @@ node /Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a agent
 ## 标准循环（背下这四条即可）
 
 ```bash
-CLI="node /Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a"
+CLI="node ./bin/t2a"
 
 $CLI project list --json                                  # 1. 看有哪些看板
 $CLI task next --project <看板> --agent <你的名字> --json  # 2. 取任务（自动移到「进行中」并锁给你）
@@ -45,7 +45,7 @@ $CLI task done <id> --result "产出说明"                    # 4. 完成；失
 支持 MCP 的 agent 直接配 MCP，不用拼命令：
 
 ```bash
-node /Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a mcp --print-config
+node ./bin/t2a mcp --print-config
 ```
 
 完整约定见 [AGENT.md](./AGENT.md)，人类文档见 [README.md](./README.md)。

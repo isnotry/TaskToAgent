@@ -15,12 +15,12 @@
 ## 第一次接触：先跑这一条
 
 ```bash
-node /Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a agent
+node ./bin/t2a agent
 ```
 
 CLI 内置了完整上手指南（最小循环 + 要点 + 退出码 + MCP 配置），`--json` 出机读版。任何 agent 只要能执行到 CLI，就不需要先找到并读完本文档。
 
-命令报错跑不起来时，先跑 `node /Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a doctor`——它一次报清 Node 版本（需 >= 22.13，因内置 `node:sqlite`）、数据库路径与完整性、网页服务是否在跑、前端产物是否齐全，不要去猜模块堆栈。
+命令报错跑不起来时，先跑 `node ./bin/t2a doctor`——它一次报清 Node 版本（需 >= 22.13，因内置 `node:sqlite`）、数据库路径与完整性、网页服务是否在跑、前端产物是否齐全，不要去猜模块堆栈。
 
 此外：
 - 仓库根目录的 `CODEBUDDY.md` / `CLAUDE.md` 会在对应 agent 进入仓库时自动加载，内容就是精简版约定。
@@ -35,7 +35,7 @@ CLI 内置了完整上手指南（最小循环 + 要点 + 退出码 + MCP 配置
 
 ## 1) MCP
 
-启动：`node /Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a mcp`（stdio JSON-RPC 2.0，协议版本 `2024-11-05`）
+启动：`node ./bin/t2a mcp`（stdio JSON-RPC 2.0，协议版本 `2024-11-05`）
 
 配置片段（CodeBuddy / Claude Desktop / Cline 等通用格式）：
 
@@ -43,8 +43,8 @@ CLI 内置了完整上手指南（最小循环 + 要点 + 退出码 + MCP 配置
 {
   "mcpServers": {
     "t2a": {
-      "command": "/Users/kingsir/.workbuddy/binaries/node/versions/22.22.2-3/bin/node",
-      "args": ["/Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a", "mcp"],
+      "command": "node",
+      "args": ["./bin/t2a", "mcp"],
       "env": { "T2A_AGENT": "codebuddy" }
     }
   }
@@ -72,8 +72,8 @@ CLI 内置了完整上手指南（最小循环 + 要点 + 退出码 + MCP 配置
 
 ```bash
 # 用托管 Node 调用（不依赖全局安装）
-NODE=/Users/kingsir/.workbuddy/binaries/node/versions/22.22.2-3/bin/node
-CLI=/Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a
+NODE=node
+CLI=./bin/t2a
 
 $NODE $CLI task next --project "Web重构" --agent codebuddy --json
 ```

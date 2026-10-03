@@ -7,12 +7,12 @@ Tasks live in the local board **TaskToAgent** (command `t2a`; SQLite; CLI / web 
 ## First thing to run
 
 ```bash
-node /Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a agent
+node ./bin/t2a agent
 ```
 
 It prints the minimal loop, rules, exit codes and MCP config. **Run it before starting.**
 
-If a command won't start (especially `No such built-in module: node:sqlite`), run `node /Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a doctor` first — it reports Node version (needs >= 22.13), database path/integrity, whether the web server is up, and whether the frontend bundle exists.
+If a command won't start (especially `No such built-in module: node:sqlite`), run `node ./bin/t2a doctor` first — it reports Node version (needs >= 22.13), database path/integrity, whether the web server is up, and whether the frontend bundle exists.
 
 ## Four rules that matter
 
@@ -24,7 +24,7 @@ If a command won't start (especially `No such built-in module: node:sqlite`), ru
 ## Minimal loop
 
 ```bash
-CLI="node /Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a"
+CLI="node ./bin/t2a"
 
 $CLI project list --json                                  # 1. list boards
 $CLI task next --project <board> --agent <your-name> --json # 2. claim (moves to doing, locks it to you)
@@ -45,7 +45,7 @@ $CLI task done <id> --result "outcome"                     # 4. finish; or task 
 If your client supports MCP:
 
 ```bash
-node /Users/kingsir/Documents/AI/projects/TaskToAgent/bin/t2a mcp --print-config
+node ./bin/t2a mcp --print-config
 ```
 
 Full convention: [AGENT.md](./AGENT.md). Human docs: [README.md](./README.md).

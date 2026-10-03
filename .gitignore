@@ -1,11 +1,26 @@
+# 依赖与构建产物
 node_modules/
 web/ui/node_modules/
+
+# 数据库（本地数据，绝不入库）
 *.db
 *.db-wal
 *.db-shm
 .t2a/
 .taskcli/
+
+# 日志与缓存
 npm-debug.log
-package-lock.json
+*.log
+.DS_Store
+__pycache__/
+
+# 编辑器
+.idea/
+.vscode/
+
+# 本地工具工作痕迹
 .workbuddy/
 .codebuddy/
+.workbuddy-*.genie
+*.wbapp_*.genie

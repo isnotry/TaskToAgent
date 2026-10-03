@@ -442,6 +442,31 @@ function ProjectSidebar({
           );
         })}
       </div>
+      {/* 回仓库入口：README 只有打开 GitHub 的人才看得到，分享应用链接时靠这里指路 */}
+      <div
+        style={{
+          flexShrink: 0,
+          padding: '10px 16px 12px 20px',
+          borderTop: '1px solid var(--color-border-2)',
+        }}
+      >
+        <a
+          href="https://github.com/isnotry/TaskToAgent"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            fontSize: 12,
+            color: 'var(--color-text-3)',
+            textDecoration: 'none',
+            textDecorationColor: 'var(--color-border-3)',
+            textUnderlineOffset: 2,
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-text-1)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-3)')}
+        >
+          GitHub 开源仓库
+        </a>
+      </div>
     </>
   );
 }
