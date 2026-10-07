@@ -7,6 +7,7 @@
 ![数据不出本机](https://img.shields.io/badge/data-local--only-orange)
 ![Node](https://img.shields.io/badge/node-%3E%3D22.13-lightgrey)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
+[![M8ven Score](https://m8ven.ai/badge/mcp/isnotry/tasktoagent)](https://m8ven.ai/mcp/isnotry/tasktoagent?s=readme)
 
 > 人和 agent 写在同一块本地看板上：任务分七列流转，谁认领、做到哪一步、卡在哪里，一眼看清。
 
@@ -206,6 +207,8 @@ TaskToAgent/
 │   ├── dist/          # 前端构建产物（已提交，开箱即用）
 │   └── ui/            # 前端源码（Vite + React + Arco Design）
 │       └── src/i18n.jsx  # 中英双语文案字典与语言切换
+├── test/
+│   └── smoke.js       # 冒烟测试：协议层 + 22 个 MCP 工具全跑一遍
 ├── docs/              # README 配图
 └── package.json
 ```
@@ -219,6 +222,14 @@ cd web/ui && npm install && npm run build
 ```
 
 前端产物落在 `web/dist`，**已提交到仓库**，所以别人 clone 下来直接 `npm run web` 就能用，不必装前端依赖。
+
+跑测试：
+
+```bash
+npm test
+```
+
+冒烟测试覆盖协议层与全部 22 个 MCP 工具（每个工具都真调一遍，并校验四个安全注解的取值与自洽性）。测试库落在系统临时目录，**不会碰你的 `~/.t2a/t2a.db`**。
 
 ## 浏览器支持
 

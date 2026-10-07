@@ -307,20 +307,24 @@ function nextTask(projectId, agent, leaseMs = DEFAULT_LEASE_MS, statuses = ['tod
 }
 
 /**
- * 依赖环检测：加入 depends_on -> task 这条边后是否成环。
- * 从 depends_on 出发向上游（谁依赖它）遍历，若能回到 taskId 说明成环。
+ * 依赖环检测：加入 task -> depends_on 这条边后是否成环。
+ *
+ * 新边是「taskId 依赖 dependsOnId」。若 dependsOnId 已经（间接）依赖 taskId，
+ * 这条边就会闭合成环。判据：从 dependsOnId 出发，沿依赖方向（它依赖谁）
+ * 能否走回 taskId。所以下一步要查的是「当前节点依赖了谁」，
+ * 而不是「谁依赖当前节点」——后者只会越走越远，永远撞不回 taskId。
  */
 function depWouldCycle(taskId, dependsOnId) {
   if (taskId === dependsOnId) return true;
   const seen = new Set();
   const stack = [dependsOnId];
-  const q = db.prepare('SELECT task_id FROM task_deps WHERE depends_on_id = ?');
+  const q = db.prepare('SELECT depends_on_id FROM task_deps WHERE task_id = ?');
   while (stack.length) {
     const cur = stack.pop();
     if (cur === taskId) return true;
     if (seen.has(cur)) continue;
     seen.add(cur);
-    for (const r of q.all(cur)) stack.push(r.task_id);
+    for (const r of q.all(cur)) stack.push(r.depends_on_id);
   }
   return false;
 }

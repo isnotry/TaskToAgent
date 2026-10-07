@@ -128,9 +128,22 @@ function agentOf(a) {
 
 /* ----------------------------- 工具实现 ----------------------------- */
 
+/**
+ * 工具实现。
+ *
+ * annotations 是 MCP 规范里给宿主（Claude / CodeBuddy 等）的安全提示，四个 hint 语义：
+ *   readOnlyHint     —— 只读，不改任何状态
+ *   destructiveHint  —— 可能删除或覆盖既有数据（与 readOnlyHint=true 互斥）
+ *   idempotentHint   —— 同一组参数重复调用效果一致
+ *   openWorldHint    —— 会碰到本工具环境之外的东西（网络、别的进程、别的库）
+ *
+ * 本服务器所有工具只读写本地这一份 SQLite、不发网络请求，所以 openWorldHint 一律 false；
+ * 不提供删除类工具，所以 destructiveHint 只在 task_dep_rm 上为 true。
+ */
 const TOOLS = {
   project_list: {
     description: '列出所有看板（含任务数）',
+    annotations: { title: '列出所有看板', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     schema: { type: 'object', properties: {} },
     run: () =>
       db
@@ -144,7 +157,7 @@ const TOOLS = {
 
   project_add: {
     description: '新建看板',
-    schema: {
+    annotations: { title: '新建看板', readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },    schema: {
       type: 'object',
       properties: { name: { type: 'string' }, description: { type: 'string' } },
       required: ['name'],
@@ -166,7 +179,7 @@ const TOOLS = {
 
   task_list: {
     description: '列出某看板的任务（可按状态过滤）',
-    schema: {
+    annotations: { title: '列出任务', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },    schema: {
       type: 'object',
       properties: { project: { type: 'string' }, status: { type: 'string' } },
     },
@@ -182,7 +195,7 @@ const TOOLS = {
 
   task_show: {
     description: '查看单条任务详情（含执行日志）',
-    schema: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] },
+    annotations: { title: '查看任务详情', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },    schema: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] },
     run: (a) => {
       const row = taskRow(a.id);
       const p = db.prepare('SELECT name FROM projects WHERE id = ?').get(row.project_id);
@@ -192,7 +205,7 @@ const TOOLS = {
 
   task_search: {
     description: '全局模糊搜索（编号/标题/内容/项目名，空格分隔多关键词为 AND）',
-    schema: { type: 'object', properties: { q: { type: 'string' } }, required: ['q'] },
+    annotations: { title: '全局搜索任务', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },    schema: { type: 'object', properties: { q: { type: 'string' } }, required: ['q'] },
     run: (a) => {
       const tokens = String(a.q).toLowerCase().split(/\s+/).filter(Boolean);
       if (!tokens.length) return [];
@@ -215,7 +228,7 @@ const TOOLS = {
 
   task_add: {
     description: '新增任务（支持 key 幂等，重复调用不会重复创建）',
-    schema: {
+    annotations: { title: '新增任务', readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },    schema: {
       type: 'object',
       properties: {
         title: { type: 'string' },
@@ -261,7 +274,7 @@ const TOOLS = {
 
   task_update: {
     description: '更新任务字段（title/content/status/priority/project_id/result/last_error）',
-    schema: {
+    annotations: { title: '更新任务字段', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },    schema: {
       type: 'object',
       properties: {
         id: { type: 'integer' },
@@ -297,7 +310,7 @@ const TOOLS = {
 
   task_next: {
     description: '取下一个「依赖已就绪且无人认领」的任务并原子认领（返回任务+项目名+历史日志）。没有任务时返回 NO_TASK',
-    schema: {
+    annotations: { title: '取并原子认领下一个任务', readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },    schema: {
       type: 'object',
       properties: {
         project: { type: 'string' },
@@ -317,7 +330,7 @@ const TOOLS = {
 
   task_claim: {
     description: '认领指定任务；已被他人持有且租约未过期时返回 CONFLICT',
-    schema: {
+    annotations: { title: '认领指定任务', readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },    schema: {
       type: 'object',
       properties: { id: { type: 'integer' }, agent: { type: 'string' }, lease: { type: 'string' } },
       required: ['id'],
@@ -332,7 +345,7 @@ const TOOLS = {
 
   task_heartbeat: {
     description: '续租（长任务定期调用，防止被判定中断而回收）；未认领时等价于认领',
-    schema: {
+    annotations: { title: '续租', readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },    schema: {
       type: 'object',
       properties: { id: { type: 'integer' }, agent: { type: 'string' }, lease: { type: 'string' } },
       required: ['id'],
@@ -359,7 +372,7 @@ const TOOLS = {
 
   task_release: {
     description: '放弃任务，回到待办并清空认领信息',
-    schema: { type: 'object', properties: { id: { type: 'integer' }, agent: { type: 'string' } }, required: ['id'] },
+    annotations: { title: '放弃任务回到待办', readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },    schema: { type: 'object', properties: { id: { type: 'integer' }, agent: { type: 'string' } }, required: ['id'] },
     run: (a) => {
       const row = taskRow(a.id);
       const ts = now();
@@ -374,7 +387,7 @@ const TOOLS = {
 
   task_done: {
     description: '标记完成，可附带产出说明',
-    schema: {
+    annotations: { title: '标记任务完成', readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },    schema: {
       type: 'object',
       properties: { id: { type: 'integer' }, result: { type: 'string' }, agent: { type: 'string' } },
       required: ['id'],
@@ -399,7 +412,7 @@ const TOOLS = {
 
   task_fail: {
     description: '记录失败并计数；未达 max（默认 3）回待办重试，超限转 blocked 等人工',
-    schema: {
+    annotations: { title: '记录一次失败', readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },    schema: {
       type: 'object',
       properties: {
         id: { type: 'integer' },
@@ -431,7 +444,7 @@ const TOOLS = {
 
   task_log: {
     description: '给任务写一条执行日志',
-    schema: {
+    annotations: { title: '写一条执行日志', readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },    schema: {
       type: 'object',
       properties: { id: { type: 'integer' }, content: { type: 'string' }, agent: { type: 'string' } },
       required: ['id', 'content'],
@@ -447,7 +460,7 @@ const TOOLS = {
 
   task_logs: {
     description: '查看任务的执行日志',
-    schema: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] },
+    annotations: { title: '查看执行日志', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },    schema: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] },
     run: (a) => {
       const row = taskRow(a.id);
       return db.prepare('SELECT * FROM task_tracks WHERE task_id = ? ORDER BY id').all(row.id);
@@ -456,7 +469,7 @@ const TOOLS = {
 
   task_deps: {
     description: '查看任务的依赖（未完成的依赖会阻塞认领）',
-    schema: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] },
+    annotations: { title: '查看任务依赖', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },    schema: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] },
     run: (a) => {
       const row = taskRow(a.id);
       return db
@@ -471,7 +484,7 @@ const TOOLS = {
 
   task_dep_add: {
     description: '设置依赖：本任务等被依赖任务 done 之后才可认领（自动防环）',
-    schema: {
+    annotations: { title: '添加依赖', readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },    schema: {
       type: 'object',
       properties: { id: { type: 'integer' }, depends_on: { type: 'integer' }, agent: { type: 'string' } },
       required: ['id', 'depends_on'],
@@ -491,7 +504,7 @@ const TOOLS = {
 
   task_dep_rm: {
     description: '移除依赖',
-    schema: {
+    annotations: { title: '移除依赖', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },    schema: {
       type: 'object',
       properties: { id: { type: 'integer' }, depends_on: { type: 'integer' }, agent: { type: 'string' } },
       required: ['id', 'depends_on'],
@@ -509,7 +522,7 @@ const TOOLS = {
 
   task_ready: {
     description: '列出可开工任务（依赖已就绪 + 无人认领），只观察不认领',
-    schema: { type: 'object', properties: { project: { type: 'string' } } },
+    annotations: { title: '列出可开工任务', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },    schema: { type: 'object', properties: { project: { type: 'string' } } },
     run: (a) => {
       const p = activeProject(a.project);
       const rows = db
@@ -524,7 +537,7 @@ const TOOLS = {
 
   task_assign: {
     description: '指定或纠正任务的认领人（写错 agent 名字时用；不动任务状态）',
-    schema: {
+    annotations: { title: '指定任务认领人', readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },    schema: {
       type: 'object',
       properties: { id: { type: 'integer' }, agent: { type: 'string' }, force: { type: 'boolean' } },
       required: ['id'],
@@ -548,7 +561,7 @@ const TOOLS = {
 
   task_report: {
     description: '导出 Markdown 报告（任务 + 执行日志 + 产物 + 依赖），把过程和结果交付给人看',
-    schema: {
+    annotations: { title: '导出 Markdown 报告', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },    schema: {
       type: 'object',
       properties: {
         project: { type: 'string' },
@@ -570,7 +583,7 @@ const TOOLS = {
 
   events: {
     description: '查看审计事件流水（谁在何时对哪条任务做了什么）',
-    schema: {
+    annotations: { title: '查看审计事件流水', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },    schema: {
       type: 'object',
       properties: {
         limit: { type: 'integer' },
@@ -611,6 +624,8 @@ function toolsList() {
     name,
     description: TOOLS[name].description,
     inputSchema: TOOLS[name].schema,
+    //四个 hint 必须是显式 boolean，宿主（OpenAI 目录等）会拒绝缺字段的工具
+    annotations: TOOLS[name].annotations,
   }));
 }
 

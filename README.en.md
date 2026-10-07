@@ -7,6 +7,7 @@
 ![data stays local](https://img.shields.io/badge/data-local--only-orange)
 ![Node](https://img.shields.io/badge/node-%3E%3D22.13-lightgrey)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
+[![M8ven Score](https://m8ven.ai/badge/mcp/isnotry/tasktoagent)](https://m8ven.ai/mcp/isnotry/tasktoagent?s=readme)
 
 > Humans and agents write on the same local board: work flows through seven columns, and you can see at a glance who claimed what, how far it got, and where it is stuck.
 
@@ -219,6 +220,14 @@ cd web/ui && npm install && npm run build
 ```
 
 The build lands in `web/dist` and is **committed to the repository**, so anyone who clones can run `npm run web` without installing front-end dependencies.
+
+Run the tests:
+
+```bash
+npm test
+```
+
+The smoke test covers the protocol layer and all 22 MCP tools — every tool is actually invoked, and the four safety annotations are checked for valid values and internal consistency. It runs against a throwaway database in the system temp directory, so your real `~/.t2a/t2a.db` is never touched.
 
 ## Browser support
 
