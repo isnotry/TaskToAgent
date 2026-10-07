@@ -7,7 +7,7 @@
 ![数据不出本机](https://img.shields.io/badge/data-local--only-orange)
 ![Node](https://img.shields.io/badge/node-%3E%3D22.13-lightgrey)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
-[![M8ven Score](https://m8ven.ai/badge/mcp/isnotry/tasktoagent)](https://m8ven.ai/mcp/isnotry/tasktoagent?s=readme)
+[![M8ven Score](https://m8ven.ai/badge/mcp/isnotry-tasktoagent-1axpvp?v=a365160c20caef7cd80853d51c6dec48)](https://m8ven.ai/mcp/isnotry-tasktoagent-1axpvp?s=readme)
 
 > 人和 agent 写在同一块本地看板上：任务分七列流转，谁认领、做到哪一步、卡在哪里，一眼看清。
 

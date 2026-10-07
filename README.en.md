@@ -7,7 +7,7 @@
 ![data stays local](https://img.shields.io/badge/data-local--only-orange)
 ![Node](https://img.shields.io/badge/node-%3E%3D22.13-lightgrey)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
-[![M8ven Score](https://m8ven.ai/badge/mcp/isnotry/tasktoagent)](https://m8ven.ai/mcp/isnotry/tasktoagent?s=readme)
+[![M8ven Score](https://m8ven.ai/badge/mcp/isnotry-tasktoagent-1axpvp?v=a365160c20caef7cd80853d51c6dec48)](https://m8ven.ai/mcp/isnotry-tasktoagent-1axpvp?s=readme)
 
 > Humans and agents write on the same local board: work flows through seven columns, and you can see at a glance who claimed what, how far it got, and where it is stuck.
 
