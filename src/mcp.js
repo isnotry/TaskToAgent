@@ -39,7 +39,7 @@ const brand = require('./brand');
 const brandEnv = brand.env;
 
 const PROTOCOL_VERSION = '2024-11-05';
-const SERVER_INFO = { name: 'TaskToAgent', version: '1.1.0' };
+const SERVER_INFO = { name: 'TaskToAgent', version: '1.2.3' };
 
 /* ----------------------------- 业务辅助 ----------------------------- */
 

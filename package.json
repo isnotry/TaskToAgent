@@ -1,6 +1,6 @@
 {
   "name": "tasktoagent",
-  "version": "1.1.0",
+  "version": "1.2.3",
   "description": "TaskToAgent —— 本地任务看板：任务分发给agent 的调度中枢（SQLite 存储，agent 友好）",
   "bin": {
     "t2a": "bin/t2a",
